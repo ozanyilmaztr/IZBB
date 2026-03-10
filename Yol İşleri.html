@@ -1,0 +1,1920 @@
+<!DOCTYPE html>
+<html lang="tr">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Yol Yapım İşleri Metraj Hesaplama</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <script>
+        tailwind.config = {
+            theme: {
+                extend: {
+                    colors: {
+                        primary: '#2c3e50',
+                        secondary: '#3498db',
+                    }
+                }
+            }
+        }
+    </script>
+    <style>
+        @media print {
+
+            /* Sayfa ayarları: Geniş tablo için yatay (landscape) mod */
+            @page {
+                size: A4 landscape;
+                margin: 1cm;
+            }
+
+            body {
+                background-color: #fff;
+                height: auto !important;
+                overflow: visible !important;
+            }
+
+            /* Yeni: Siyah beyaz yazdırma için gri tonlama filtresi */
+            body.print-grayscale {
+                filter: grayscale(100%);
+            }
+
+            /* Yazdırılacak alan dışındaki her şeyi gizle */
+            body * {
+                visibility: hidden;
+            }
+
+            #printableArea,
+            #printableArea * {
+                visibility: visible;
+            }
+
+            #printableArea {
+                position: absolute;
+                top: 0;
+                left: 0;
+                width: 100%;
+                margin: 0;
+                padding: 0;
+                box-shadow: none;
+                border: none;
+                font-size: 9pt;
+                /* Genel yazı tipi boyutu */
+                background-color: white;
+                z-index: 9999;
+                overflow: visible;
+            }
+
+            /* Yazdırma sırasında kapsayıcıların taşma ve esneklik ayarlarını düzelt */
+            #printableArea,
+            #tablesContainer {
+                display: block !important;
+                height: auto !important;
+                overflow: visible !important;
+                flex: none !important;
+            }
+
+            /* Özet tablolarının sayfa ortasında bölünmesini engelle */
+            #tablesContainer>div {
+                page-break-inside: avoid;
+            }
+
+            /* Ana metraj tablolarındaki "İşlem" sütununu gizle */
+            #tablesContainer table th:last-child,
+            #tablesContainer table td:last-child {
+                display: none;
+            }
+
+            /* Yazdırma için genel tablo stilleri */
+            #printableArea table {
+                width: 100% !important;
+                border-collapse: collapse !important;
+                page-break-inside: auto;
+                font-size: 7.5pt;
+                /* Tablo içeriği için daha küçük font */
+            }
+
+            #printableArea th,
+            #printableArea td {
+                padding: 4px 5px !important;
+                border: 1px solid #ccc !important;
+                word-wrap: break-word;
+            }
+
+            #printableArea thead {
+                display: table-header-group;
+                /* Başlıkları her sayfada tekrarla */
+            }
+
+            #printableArea tr {
+                page-break-inside: avoid;
+                /* Satırların sayfa ortasında bölünmesini engelle */
+            }
+
+            /* Başlık stilleri ve renk sıfırlama */
+            #printableArea h2,
+            #printableArea h3,
+            #printableArea h4 {
+                page-break-after: avoid;
+                border: none;
+                background: none;
+            }
+
+            #printableArea * {
+                background-color: transparent !important;
+                box-shadow: none !important;
+            }
+
+            .print-hidden {
+                display: none !important;
+            }
+        }
+    </style>
+</head>
+
+<body class="bg-gray-50 font-sans text-gray-800 p-4 md:p-8">
+
+    <h1 class="text-3xl font-bold text-center text-primary mb-8">Yol ve Kaldırım İşleri Metraj Cetveli <span
+            class="text-sm font-normal text-gray-500 block mt-1">(ÇSB Pozlu)</span></h1>
+
+    <div class="w-full px-4 grid grid-cols-1 lg:grid-cols-4 gap-6">
+        <!-- Giriş Formu -->
+        <div class="bg-white rounded-xl shadow-lg p-6 h-fit">
+            <h2 class="text-xl font-semibold text-secondary border-b-2 border-secondary pb-2 mb-6">Kontrol Paneli</h2>
+            <div id="controlPanel" class="space-y-5">
+                <div id="filterStatusContainer">
+                    <label class="block text-sm font-medium text-gray-700 mb-1">Aktif Filtre:</label>
+                    <div id="filterStatus"
+                        class="p-3 bg-gray-100 rounded-lg text-sm text-gray-700 border flex items-center justify-between">
+                        <span class="italic">Filtre uygulanmıyor...</span>
+                    </div>
+                </div>
+
+                <div class="space-y-2">
+                    <button type="button" onclick="openAddEntryModal()"
+                        class="w-full bg-secondary hover:bg-blue-600 text-white font-bold py-2 px-4 rounded transition shadow-md"><i
+                            class="fas fa-plus mr-2"></i>Yeni Kayıt Ekle</button>
+                    <button type="button" onclick="openGeneralFilterModal()"
+                        class="w-full bg-blue-500 hover:bg-blue-600 text-white font-bold py-2 px-4 rounded transition shadow-md"><i
+                            class="fas fa-filter mr-2"></i>Filtre Uygula</button>
+                    <button type="button" onclick="loadSampleProject()"
+                        class="w-full bg-indigo-500 hover:bg-indigo-600 text-white font-bold py-2 px-4 rounded transition shadow-md">Örnek
+                        Proje Yükle</button>
+                    <button type="button" onclick="resetData()"
+                        class="w-full bg-red-500 hover:bg-red-600 text-white font-bold py-2 px-4 rounded transition shadow-md">Tümünü
+                        Temizle</button>
+                </div>
+
+                <div class="grid grid-cols-2 gap-2 pt-4 border-t">
+                    <button type="button" onclick="saveToLocal(true)"
+                        class="bg-green-600 hover:bg-green-700 text-white py-2 rounded transition text-sm"><i
+                            class="fas fa-save mr-1"></i> Kaydet</button>
+                    <button type="button" onclick="downloadBackup()"
+                        class="bg-purple-600 hover:bg-purple-700 text-white py-2 rounded transition text-sm"><i
+                            class="fas fa-download mr-1"></i> Yedekle</button>
+                    <button type="button" onclick="document.getElementById('restoreInput').click()"
+                        class="bg-yellow-600 hover:bg-yellow-700 text-white py-2 rounded transition text-sm"><i
+                            class="fas fa-upload mr-1"></i> Yükle</button>
+                    <button type="button" onclick="exportToExcel()"
+                        class="bg-teal-600 hover:bg-teal-700 text-white py-2 rounded transition text-sm"><i
+                            class="fas fa-file-excel mr-1"></i> Excel</button>
+                    <button type="button" onclick="openPrintModal()"
+                        class="bg-red-600 hover:bg-red-700 text-white py-2 rounded transition text-sm col-span-2"><i
+                            class="fas fa-file-pdf mr-1"></i> PDF Kaydet</button>
+                </div>
+
+                <!-- Hızlı Erişim Butonları -->
+                <div class="pt-4 border-t border-gray-200 grid grid-cols-2 gap-2">
+                    <button type="button" onclick="openFilterModal('projects')"
+                        class="bg-indigo-100 hover:bg-indigo-200 text-indigo-800 font-bold py-2 px-4 rounded transition text-sm border border-indigo-200">
+                        <i class="fas fa-folder-open mr-2"></i>Projeler
+                    </button>
+                    <button type="button" onclick="openFilterModal('districts')"
+                        class="bg-teal-100 hover:bg-teal-200 text-teal-800 font-bold py-2 px-4 rounded transition text-sm border border-teal-200">
+                        <i class="fas fa-map-marker-alt mr-2"></i>İlçeler
+                    </button>
+                </div>
+            </div>
+        </div>
+
+        <!-- Sonuç Tablosu -->
+        <div id="printableArea" class="bg-white rounded-xl shadow-lg p-6 lg:col-span-3 flex flex-col h-full">
+            <h2 id="tableTitle" class="text-xl font-semibold text-secondary border-b-2 border-secondary pb-2 mb-4">
+                Metraj Cetveli</h2>
+            <div id="tablesContainer" class="overflow-x-auto flex-grow space-y-6">
+                <!-- Tablolar buraya gelecek -->
+            </div>
+
+            <!-- Birim Fiyat Listesi Tablosu -->
+            <div id="priceListContainer" class="mt-12 border-t-2 border-gray-100 pt-6">
+                <h3 class="text-lg font-bold text-gray-700 mb-4"><i class="fas fa-list-alt mr-2"></i>Birim Fiyat Poz
+                    Listesi</h3>
+                <div class="overflow-x-auto">
+                    <table class="min-w-full divide-y divide-gray-200 border border-gray-200 rounded-lg text-sm">
+                        <thead class="bg-gray-50">
+                            <tr>
+                                <th class="px-4 py-2 text-left font-semibold text-gray-600">Poz No</th>
+                                <th class="px-4 py-2 text-left font-semibold text-gray-600">İmalat Tanımı</th>
+                                <th class="px-4 py-2 text-center font-semibold text-gray-600">Birim</th>
+                                <th class="px-4 py-2 text-right font-semibold text-gray-600">Y.M. Fiyat (₺)</th>
+                                <th class="px-4 py-2 text-right font-semibold text-blue-600">Sözleşme Fiyat (₺)</th>
+                            </tr>
+                        </thead>
+                        <tbody id="priceListBody" class="bg-white divide-y divide-gray-200">
+                            <!-- JS ile doldurulacak -->
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+
+            <!-- Poz Tarifleri ve Ölçü Esasları Tablosu -->
+            <div id="definitionsContainer" class="mt-8 border-t-2 border-gray-100 pt-6">
+                <h3 class="text-lg font-bold text-gray-700 mb-4"><i class="fas fa-book mr-2"></i>Poz Tarifleri ve Ölçü
+                    Esasları</h3>
+                <div class="overflow-x-auto">
+                    <table class="min-w-full divide-y divide-gray-200 border border-gray-200 rounded-lg text-sm">
+                        <thead class="bg-gray-50">
+                            <tr>
+                                <th class="px-4 py-2 text-left font-semibold text-gray-600">Poz No</th>
+                                <th class="px-4 py-2 text-left font-semibold text-gray-600">İmalat Tanımı</th>
+                                <th class="px-4 py-2 text-center font-semibold text-gray-600">Birim</th>
+                                <th class="px-4 py-2 text-left font-semibold text-gray-600">Ölçü ve Hesaplama Yöntemi
+                                </th>
+                            </tr>
+                        </thead>
+                        <tbody id="definitionsBody" class="bg-white divide-y divide-gray-200">
+                            <!-- JS ile doldurulacak -->
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- General Filter Modal -->
+    <div id="generalFilterModal"
+        class="fixed inset-0 bg-black bg-opacity-50 hidden z-50 flex items-center justify-center">
+        <div class="bg-white rounded-lg shadow-2xl w-full max-w-sm mx-4 p-6">
+            <div class="flex justify-between items-center border-b pb-2 mb-4">
+                <h3 class="text-lg font-bold text-primary">Filtreleme Seçenekleri</h3>
+                <button onclick="closeGeneralFilterModal()"
+                    class="text-gray-400 hover:text-gray-600 text-2xl">&times;</button>
+            </div>
+            <div class="space-y-3">
+                <button onclick="closeGeneralFilterModal(); openFilterModal('projects')"
+                    class="w-full bg-indigo-100 hover:bg-indigo-200 text-indigo-800 font-bold py-3 px-4 rounded transition border border-indigo-200 flex items-center justify-center">
+                    <i class="fas fa-folder-open mr-2"></i>Projeye Göre Filtrele
+                </button>
+                <button onclick="closeGeneralFilterModal(); openFilterModal('districts')"
+                    class="w-full bg-teal-100 hover:bg-teal-200 text-teal-800 font-bold py-3 px-4 rounded transition border border-teal-200 flex items-center justify-center">
+                    <i class="fas fa-map-marker-alt mr-2"></i>İlçeye Göre Filtrele
+                </button>
+                <button onclick="clearFilters(); closeGeneralFilterModal()"
+                    class="w-full bg-gray-200 hover:bg-gray-300 text-gray-700 font-bold py-3 px-4 rounded transition border border-gray-300 flex items-center justify-center">
+                    <i class="fas fa-times-circle mr-2"></i>Filtreyi Temizle
+                </button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Filter Selection Modal -->
+    <div id="filterSelectionModal"
+        class="fixed inset-0 bg-black bg-opacity-50 hidden z-[60] flex items-center justify-center">
+        <div
+            class="bg-white rounded-lg shadow-2xl w-full max-w-md mx-4 transform transition-all flex flex-col max-h-[80vh]">
+            <div class="flex justify-between items-center p-4 border-b">
+                <h3 id="filterModalTitle" class="text-lg font-bold text-primary">Seçim Yapınız</h3>
+                <button onclick="closeFilterModal()" class="text-gray-400 hover:text-gray-600 text-2xl">&times;</button>
+            </div>
+            <div id="filterModalListContainer" class="p-2 overflow-y-auto flex-grow">
+                <!-- Liste buraya gelecek -->
+            </div>
+        </div>
+    </div>
+
+    <!-- Selection Modal -->
+    <div id="selectionModal"
+        class="fixed inset-0 bg-black bg-opacity-50 hidden z-[60] flex items-center justify-center">
+        <div class="bg-white rounded-lg shadow-2xl w-full max-w-md mx-4 transform transition-all">
+            <div class="flex justify-between items-center p-4 border-b">
+                <h3 id="modalTitle" class="text-lg font-bold text-primary">Seçim Yapınız</h3>
+                <button onclick="closeSelectionModal()"
+                    class="text-gray-400 hover:text-gray-600 text-2xl">&times;</button>
+            </div>
+            <div id="modalListContainer" class="p-2 max-h-80 overflow-y-auto"></div>
+        </div>
+    </div>
+
+    <!-- Edit Entry Modal -->
+    <div id="editModal" class="fixed inset-0 bg-black bg-opacity-50 hidden z-50 flex items-center justify-center">
+        <div
+            class="bg-white rounded-lg shadow-2xl w-full max-w-2xl mx-4 transform transition-all p-6 max-h-[90vh] overflow-y-auto">
+            <div class="flex justify-between items-center border-b pb-2 mb-4">
+                <h3 class="text-lg font-bold text-primary">Kaydı Düzenle</h3>
+                <button onclick="closeEditModal()" class="text-gray-400 hover:text-gray-600 text-2xl">&times;</button>
+            </div>
+            <form id="editForm" class="space-y-4">
+                <input type="hidden" id="editId">
+                <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+                    <div>
+                        <label class="block text-sm font-medium text-gray-700 mb-1">Proje Adı</label>
+                        <input type="text" id="editProjectName"
+                            class="w-full p-2 border border-gray-300 rounded focus:ring-2 focus:ring-secondary focus:outline-none">
+                    </div>
+                    <div>
+                        <label class="block text-sm font-medium text-gray-700 mb-1">İlçe</label>
+                        <input type="text" id="editDistrictName"
+                            class="w-full p-2 border border-gray-300 rounded focus:ring-2 focus:ring-secondary focus:outline-none">
+                    </div>
+                    <div>
+                        <label class="block text-sm font-medium text-gray-700 mb-1">Cadde / Sokak</label>
+                        <input type="text" id="editStreetName"
+                            class="w-full p-2 border border-gray-300 rounded focus:ring-2 focus:ring-secondary focus:outline-none">
+                    </div>
+                    <div>
+                        <label class="block text-sm font-medium text-gray-700 mb-1">Açıklama</label>
+                        <input type="text" id="editDesc"
+                            class="w-full p-2 border border-gray-300 rounded focus:ring-2 focus:ring-secondary focus:outline-none">
+                    </div>
+                    <div>
+                        <label class="block text-sm font-medium text-gray-700 mb-1">Kurum Poz No</label>
+                        <input type="text" id="editKurumPoz"
+                            class="w-full p-2 border border-gray-300 rounded focus:ring-2 focus:ring-secondary focus:outline-none">
+                    </div>
+                    <div>
+                        <label class="block text-sm font-medium text-gray-700 mb-1">Malzeme</label>
+                        <select id="editMaterial" onchange="toggleEditInputs()"
+                            class="w-full p-2 border border-gray-300 rounded focus:ring-2 focus:ring-secondary focus:outline-none bg-white">
+                        </select>
+                    </div>
+                    <div>
+                        <label class="block text-sm font-medium text-gray-700 mb-1">Benzer</label>
+                        <input type="number" id="editSimilar" step="1" min="1"
+                            class="w-full p-2 border border-gray-300 rounded focus:ring-2 focus:ring-secondary focus:outline-none">
+                    </div>
+                </div>
+
+                <div id="editAreaInputs" class="grid grid-cols-2 gap-4">
+                    <div>
+                        <label class="block text-sm font-medium text-gray-700 mb-1">Genişlik (m)</label>
+                        <input type="number" id="editSidewalkWidth" step="0.01"
+                            class="w-full p-2 border border-gray-300 rounded focus:ring-2 focus:ring-secondary focus:outline-none">
+                    </div>
+                    <div>
+                        <label class="block text-sm font-medium text-gray-700 mb-1">Uzunluk (m)</label>
+                        <input type="number" id="editSidewalkLength" step="0.01"
+                            class="w-full p-2 border border-gray-300 rounded focus:ring-2 focus:ring-secondary focus:outline-none">
+                    </div>
+                </div>
+
+                <div id="editThicknessInput" style="display:none;">
+                    <label class="block text-sm font-medium text-gray-700 mb-1">Kalınlık (m)</label>
+                    <input type="number" id="editThickness" step="0.01"
+                        class="w-full p-2 border border-gray-300 rounded focus:ring-2 focus:ring-secondary focus:outline-none">
+                </div>
+
+                <div id="editLengthInput" style="display:none;">
+                    <label class="block text-sm font-medium text-gray-700 mb-1">Bordür Uzunluğu (m)</label>
+                    <input type="number" id="editCurbLength" step="0.01"
+                        class="w-full p-2 border border-gray-300 rounded focus:ring-2 focus:ring-secondary focus:outline-none">
+                </div>
+
+                <div class="flex justify-end gap-2 pt-4 border-t">
+                    <button type="button" onclick="closeEditModal()"
+                        class="bg-gray-500 hover:bg-gray-600 text-white px-4 py-2 rounded transition">İptal</button>
+                    <button type="button" onclick="saveEditEntry()"
+                        class="bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded transition">Güncelle</button>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <!-- Add Entry Modal -->
+    <div id="addEntryModal" class="fixed inset-0 bg-black bg-opacity-50 hidden z-50 flex items-center justify-center">
+        <div
+            class="bg-white rounded-lg shadow-2xl w-full max-w-2xl mx-4 transform transition-all p-6 max-h-[90vh] overflow-y-auto">
+            <div class="flex justify-between items-center border-b pb-2 mb-4">
+                <h3 class="text-lg font-bold text-primary">Yeni İmalat Ekle</h3>
+                <button onclick="closeAddEntryModal()"
+                    class="text-gray-400 hover:text-gray-600 text-2xl">&times;</button>
+            </div>
+            <form id="addForm" class="space-y-4">
+                <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+                    <div>
+                        <label for="addProjectName" class="block text-sm font-medium text-gray-700 mb-1">Proje
+                            Adı:</label>
+                        <div class="flex gap-2">
+                            <input type="text" id="addProjectName" placeholder="Proje seçin veya yeni yazın..."
+                                autocomplete="off"
+                                class="flex-1 p-2 border border-gray-300 rounded focus:ring-2 focus:ring-secondary focus:outline-none">
+                            <button type="button" onclick="openSelectionModal('addProjectName', 'projects')"
+                                class="bg-slate-600 hover:bg-slate-700 text-white px-3 py-2 rounded transition"><i
+                                    class="fas fa-list"></i></button>
+                        </div>
+                    </div>
+                    <div>
+                        <label for="addDistrictName" class="block text-sm font-medium text-gray-700 mb-1">İlçe:</label>
+                        <div class="flex gap-2">
+                            <input type="text" id="addDistrictName" placeholder="İlçe adı..." autocomplete="off"
+                                class="flex-1 p-2 border border-gray-300 rounded focus:ring-2 focus:ring-secondary focus:outline-none">
+                            <button type="button" onclick="openSelectionModal('addDistrictName', 'districts')"
+                                class="bg-slate-600 hover:bg-slate-700 text-white px-3 py-2 rounded transition"><i
+                                    class="fas fa-list"></i></button>
+                        </div>
+                    </div>
+                </div>
+                <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+                    <div>
+                        <label for="addStreetName" class="block text-sm font-medium text-gray-700 mb-1">Cadde /
+                            Sokak:</label>
+                        <div class="flex gap-2">
+                            <input type="text" id="addStreetName" placeholder="Cadde veya sokak adı..."
+                                autocomplete="off"
+                                class="flex-1 p-2 border border-gray-300 rounded focus:ring-2 focus:ring-secondary focus:outline-none">
+                            <button type="button" onclick="openSelectionModal('addStreetName', 'streets')"
+                                class="bg-slate-600 hover:bg-slate-700 text-white px-3 py-2 rounded transition"><i
+                                    class="fas fa-list"></i></button>
+                        </div>
+                    </div>
+                    <div>
+                        <label for="addDesc" class="block text-sm font-medium text-gray-700 mb-1">Açıklama /
+                            Yer:</label>
+                        <div class="flex gap-2">
+                            <input type="text" id="addDesc" placeholder="Örn: 0+100 - 0+200 Arası (Sağ)"
+                                autocomplete="off"
+                                class="flex-1 p-2 border border-gray-300 rounded focus:ring-2 focus:ring-secondary focus:outline-none">
+                            <button type="button" onclick="openSelectionModal('addDesc', 'descriptions')"
+                                class="bg-slate-600 hover:bg-slate-700 text-white px-3 py-2 rounded transition"><i
+                                    class="fas fa-list"></i></button>
+                        </div>
+                    </div>
+                </div>
+                <div>
+                    <label for="addMaterial" class="block text-sm font-medium text-gray-700 mb-1">Kaldırım
+                        Malzemesi:</label>
+                    <select id="addMaterial" onchange="toggleAddInputs()"
+                        class="w-full p-2 border border-gray-300 rounded focus:ring-2 focus:ring-secondary focus:outline-none bg-white">
+                        <option value="parke8">15.220.1003 - Beton Parke Taşı (8cm)</option>
+                        <option value="parke6">15.220.1002 - Beton Parke Taşı (6cm)</option>
+                        <option value="bordur">15.220.1001 - Beton Bordür (75x30x15)</option>
+                        <option value="cimbordur">15.220.1005 - Çim Bordürü</option>
+                        <option value="karo">15.220.1004 - Beton Plak (Karo) Döşeme</option>
+                        <option value="beton">15.150.1006 - C20/25 Hazır Beton Dökülmesi</option>
+                        <option value="oluk">15.220.1006 - Beton Yağmur Oluğu</option>
+                        <option value="stabilize">15.140.1002 - Stabilize Dolgu Yapılması</option>
+                        <option value="asfalt">19.100.1000 - Asfalt Kaplaması (Genel)</option>
+                        <option value="binder">19.100.1008 - Binder Asfalt Kaplaması</option>
+                        <option value="asinma">19.100.1009 - Aşınma Asfalt Kaplaması</option>
+                        <option value="bittemel">19.100.1007 - Bitümlü Temel</option>
+                        <option value="transe">15.120.1004 - Tranşe Yapılması</option>
+                    </select>
+                </div>
+                <div>
+                    <label for="addKurumPoz" class="block text-sm font-medium text-gray-700 mb-1">Kurum Poz No:</label>
+                    <input type="text" id="addKurumPoz" placeholder="Örn: OZEL.001"
+                        class="w-full p-2 border border-gray-300 rounded focus:ring-2 focus:ring-secondary focus:outline-none">
+                </div>
+                <div>
+                    <label for="addSimilar" class="block text-sm font-medium text-gray-700 mb-1">Benzer (Adet):</label>
+                    <input type="number" id="addSimilar" step="1" min="1" placeholder="1"
+                        class="w-full p-2 border border-gray-300 rounded focus:ring-2 focus:ring-secondary focus:outline-none">
+                </div>
+                <div id="addAreaInputs" class="grid grid-cols-2 gap-4">
+                    <div><label for="addSidewalkWidth" class="block text-sm font-medium text-gray-700 mb-1">Genişlik
+                            (m):</label><input type="number" id="addSidewalkWidth" step="0.01" min="0"
+                            placeholder="0.00" required
+                            class="w-full p-2 border border-gray-300 rounded focus:ring-2 focus:ring-secondary focus:outline-none">
+                    </div>
+                    <div><label for="addSidewalkLength" class="block text-sm font-medium text-gray-700 mb-1">Uzunluk
+                            (m):</label><input type="number" id="addSidewalkLength" step="0.01" min="0"
+                            placeholder="0.00" required
+                            class="w-full p-2 border border-gray-300 rounded focus:ring-2 focus:ring-secondary focus:outline-none">
+                    </div>
+                </div>
+                <div id="addThicknessInput" style="display:none;"><label for="addThickness"
+                        class="block text-sm font-medium text-gray-700 mb-1">Kalınlık / Derinlik (m):</label><input
+                        type="number" id="addThickness" step="0.01" min="0" placeholder="0.15"
+                        class="w-full p-2 border border-gray-300 rounded focus:ring-2 focus:ring-secondary focus:outline-none">
+                </div>
+                <div id="addLengthInput" style="display:none;"><label for="addCurbLength"
+                        class="block text-sm font-medium text-gray-700 mb-1">Bordür Uzunluğu (m):</label><input
+                        type="number" id="addCurbLength" step="0.01" min="0" placeholder="100.00" required
+                        class="w-full p-2 border border-gray-300 rounded focus:ring-2 focus:ring-secondary focus:outline-none">
+                </div>
+                <div class="flex justify-end gap-2 pt-4 border-t">
+                    <button type="button" onclick="closeAddEntryModal()"
+                        class="bg-gray-500 hover:bg-gray-600 text-white px-4 py-2 rounded transition">İptal</button>
+                    <button type="submit"
+                        class="bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded transition">Kaydet</button>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <!-- Print Selection Modal -->
+    <div id="printModal" class="fixed inset-0 bg-black bg-opacity-50 hidden z-50 flex items-center justify-center">
+        <div class="bg-white rounded-lg shadow-2xl w-full max-w-sm mx-4 p-6">
+            <div class="flex justify-between items-center border-b pb-2 mb-4">
+                <h3 class="text-lg font-bold text-primary">Yazdırma Seçenekleri</h3>
+                <button onclick="closePrintModal()" class="text-gray-400 hover:text-gray-600 text-2xl">&times;</button>
+            </div>
+            <div class="mb-4 border-b border-gray-100 pb-4">
+                <label class="block text-sm font-bold text-gray-700 mb-2">Kağıt Boyutu / Yönü</label>
+                <select id="paperSize"
+                    class="w-full p-2 border border-gray-300 rounded focus:ring-2 focus:ring-secondary focus:outline-none text-sm">
+                    <option value="A4 landscape">A4 Yatay (Geniş Tablolar İçin)</option>
+                    <option value="A4 portrait">A4 Dikey</option>
+                    <option value="A3 landscape">A3 Yatay</option>
+                    <option value="A3 portrait">A3 Dikey</option>
+                </select>
+            </div>
+            <!-- Yeni Çıktı Rengi Seçimi -->
+            <div class="mb-4 border-b border-gray-100 pb-4">
+                <label class="block text-sm font-bold text-gray-700 mb-2">Çıktı Rengi</label>
+                <select id="printColor"
+                    class="w-full p-2 border border-gray-300 rounded focus:ring-2 focus:ring-secondary focus:outline-none text-sm">
+                    <option value="color">Renkli</option>
+                    <option value="grayscale">Siyah Beyaz</option>
+                </select>
+            </div>
+            <div class="space-y-3">
+                <label class="flex items-center space-x-2 cursor-pointer">
+                    <input type="checkbox" id="printMetraj" checked
+                        class="w-5 h-5 text-secondary rounded focus:ring-secondary">
+                    <span class="text-gray-700">Metraj Cetveli</span>
+                </label>
+                <label class="flex items-center space-x-2 cursor-pointer">
+                    <input type="checkbox" id="printFiyat" checked
+                        class="w-5 h-5 text-secondary rounded focus:ring-secondary">
+                    <span class="text-gray-700">Birim Fiyat Listesi</span>
+                </label>
+                <label class="flex items-center space-x-2 cursor-pointer">
+                    <input type="checkbox" id="printTarif" checked
+                        class="w-5 h-5 text-secondary rounded focus:ring-secondary">
+                    <span class="text-gray-700">Poz Tarifleri</span>
+                </label>
+            </div>
+            <div class="mt-6 flex justify-end gap-2">
+                <button onclick="closePrintModal()"
+                    class="bg-gray-500 hover:bg-gray-600 text-white px-4 py-2 rounded transition">İptal</button>
+                <button onclick="printSelected()"
+                    class="bg-red-600 hover:bg-red-700 text-white px-4 py-2 rounded transition"><i
+                        class="fas fa-print mr-1"></i> Yazdır</button>
+            </div>
+        </div>
+    </div>
+
+    <input type="file" id="restoreInput" class="hidden" onchange="restoreBackup(this)" accept=".json">
+
+    <script>
+        // ÇSB Poz Veritabanı
+        // Not: Birim fiyatlar 2026 yılı için temsili değerlerdir.
+        const csbData = {
+            "parke8": {
+                poz: "15.220.1003",
+                tanim: "8 cm yük. beton parke taşı ile döşeme kaplaması",
+                birim: "m²",
+                type: "area",
+                fiyat_2026: 250.00,
+                fiyat_sozlesme: 200.00,
+                tarif: "8 cm yüksekliğinde her renk ve desende normal çimentolu beton parke taşının; kum tabakası üzerine döşenmesi, derzlerin kumla doldurulması, süpürülmesi ve vibrasyonlu kompaktör ile sıkıştırılması dahil işçilik ve malzeme bedeli."
+            },
+            "parke6": {
+                poz: "15.220.1002",
+                tanim: "6 cm yük. beton parke taşı ile döşeme kaplaması",
+                birim: "m²",
+                type: "area",
+                fiyat_2026: 220.00,
+                fiyat_sozlesme: 180.00,
+                tarif: "6 cm yüksekliğinde beton parke taşının projesine uygun şekilde döşenmesi. Yaya yolları ve çevre düzenlemelerinde kullanılır. Sıkıştırma ve kum serme işlemleri dahildir."
+            },
+            "bordur": {
+                poz: "15.220.1001",
+                tanim: "75x30x15 cm beton bordür döşenmesi",
+                birim: "m",
+                type: "length",
+                fiyat_2026: 150.00,
+                fiyat_sozlesme: 120.00,
+                tarif: "C20/25 kalitesinde prekast beton bordürün, 10 cm kalınlığında C16/20 beton temel üzerine projesindeki hat ve koda uygun olarak dizilmesi, derzlerin 400 kg çimento dozlu harçla kapatılması."
+            },
+            "cimbordur": {
+                poz: "15.220.1005",
+                tanim: "Beton bahçe (çim) bordürü döşenmesi",
+                birim: "m",
+                type: "length",
+                fiyat_2026: 80.00,
+                fiyat_sozlesme: 65.00,
+                tarif: "Genellikle 50x20x10 cm boyutlarında bahçe bordürünün toprak veya beton zemin üzerine, çiçeklik ve yeşil alan sınırlarını belirlemek amacıyla dizilmesi işidir."
+            },
+            "beton": {
+                poz: "15.150.1006",
+                tanim: "C20/25 hazır beton dökülmesi",
+                birim: "m³",
+                type: "area_thick",
+                fiyat_2026: 2500.00,
+                fiyat_sozlesme: 2000.00,
+                tarif: "Beton santralinde üretilen betonun transmikserle getirilmesi, beton pompası veya vinçle kalıba dökülmesi, vibratörle sıkıştırılması ve bakımının yapılması."
+            },
+            "asfalt": {
+                poz: "19.100.1000",
+                tanim: "Asfalt Kaplaması (Genel)",
+                birim: "ton",
+                type: "area_thick",
+                density: 2.4,
+                fiyat_2026: 5000.00,
+                fiyat_sozlesme: 4200.00,
+                tarif: "Bitümlü sıcak karışımın (BSK) finişerle serilmesi ve silindirle uygun tokluğa gelene kadar sıkıştırılması. Yapıştırma tabakası (emülsiyon) uygulaması fiyata dahildir."
+            },
+            "transe": {
+                poz: "15.120.1004",
+                tanim: "Tranşe ve her türlü kazı yapılması",
+                birim: "m³",
+                type: "area_thick",
+                fiyat_2026: 150.00,
+                fiyat_sozlesme: 100.00,
+                tarif: "Altyapı hatları için makine veya el ile serbest kazı yapılması, kazılan malzemenin depo edilmesi veya taşıta yüklenerek uzaklaştırılması."
+            },
+            "karo": {
+                poz: "15.220.1004",
+                tanim: "Beton plak taş (karo) ile döşeme kaplaması",
+                birim: "m²",
+                type: "area",
+                fiyat_2026: 230.00,
+                fiyat_sozlesme: 190.00,
+                tarif: "30x30 cm veya 40x40 cm boyutlarında beton plak taşların kum yatak üzerine döşenmesi, derzlerin kumla doldurulması."
+            },
+            "oluk": {
+                poz: "15.220.1006",
+                tanim: "Beton yağmur oluğu döşenmesi",
+                birim: "m",
+                type: "length",
+                fiyat_2026: 120.00,
+                fiyat_sozlesme: 95.00,
+                tarif: "Yağmur sularının uzaklaştırılması için beton oluk taşlarının projesine uygun döşenmesi."
+            },
+            "stabilize": {
+                poz: "15.140.1002",
+                tanim: "Stabilize malzeme ile dolgu yapılması",
+                birim: "m³",
+                type: "area_thick",
+                fiyat_2026: 300.00,
+                fiyat_sozlesme: 240.00,
+                tarif: "Ocak taşından konkasörle kırılmış stabilize malzemenin serilmesi, sulanması ve sıkıştırılması."
+            },
+            "binder": {
+                poz: "19.100.1008",
+                tanim: "Binder Asfalt Kaplaması (Tip A)",
+                birim: "ton",
+                type: "area_thick",
+                density: 2.4,
+                fiyat_2026: 4800.00,
+                fiyat_sozlesme: 4000.00,
+                tarif: "Bitümlü sıcak karışım binder tabakasının finişerle serilmesi ve silindirle sıkıştırılması."
+            },
+            "asinma": {
+                poz: "19.100.1009",
+                tanim: "Aşınma Asfalt Kaplaması (Tip A)",
+                birim: "ton",
+                type: "area_thick",
+                density: 2.4,
+                fiyat_2026: 5200.00,
+                fiyat_sozlesme: 4400.00,
+                tarif: "Bitümlü sıcak karışım aşınma tabakasının finişerle serilmesi ve silindirle sıkıştırılması."
+            },
+            "bittemel": {
+                poz: "19.100.1007",
+                tanim: "Bitümlü Temel Yapılması",
+                birim: "ton",
+                type: "area_thick",
+                density: 2.4,
+                fiyat_2026: 4500.00,
+                fiyat_sozlesme: 3800.00,
+                tarif: "Bitümlü temel tabakasının finişerle serilmesi ve silindirle sıkıştırılması."
+            }
+        };
+
+        // İzmir İlçeleri Listesi
+        const IZMIR_ILCELERI = [
+            "Aliağa", "Balçova", "Bayındır", "Bayraklı", "Bergama", "Beydağ", "Bornova", "Buca",
+            "Çeşme", "Çiğli", "Dikili", "Foça", "Gaziemir", "Güzelbahçe", "Karabağlar", "Karaburun",
+            "Karşıyaka", "Kemalpaşa", "Kınık", "Kiraz", "Konak", "Menderes", "Menemen", "Narlıdere",
+            "Ödemiş", "Seferihisar", "Selçuk", "Tire", "Torbalı", "Urla"
+        ];
+
+        // Verileri tutacak dizi
+        let entries = [];
+
+        const formatNumber = (num) => new Intl.NumberFormat('tr-TR', { minimumFractionDigits: 2, maximumFractionDigits: 2 }).format(num);
+
+        // Akıllı listeler için veri deposu
+        let lists = {
+            projects: [],
+            districts: [...IZMIR_ILCELERI],
+            streets: {}, // Proje bazlı sokaklar: { "ProjeA": ["Sokak1", "Sokak2"] }
+            descriptions: []
+        };
+
+        let currentModalTarget = null;
+        let currentListKey = null;
+        let currentProjectForStreetModal = null; // Sokak listesi için proje bağlamını tutar
+        let currentFilter = { type: null, value: '' }; // type: 'project' or 'district'
+
+
+        // Inputları malzeme tipine göre aç/kapa
+        function toggleInputs() {
+            // Bu fonksiyon artık kullanılmıyor, toggleAddInputs ve toggleEditInputs kullanılacak.
+            // Ancak eski yükleme fonksiyonları çağırabileceğinden boş bırakmak güvenli olabilir.
+        }
+
+        document.getElementById('addForm').addEventListener('submit', function (e) {
+            e.preventDefault();
+
+            const projectName = document.getElementById('addProjectName').value.trim();
+            const districtName = document.getElementById('addDistrictName').value.trim();
+
+            if (!projectName) {
+                alert("Lütfen bir proje seçin veya oluşturun.");
+                return;
+            }
+
+            const streetName = document.getElementById('addStreetName').value.trim() || '-';
+            const desc = document.getElementById('addDesc').value || '-';
+            const kurumPoz = document.getElementById('addKurumPoz').value.trim();
+            const similar = parseFloat(document.getElementById('addSimilar').value) || 1;
+            const materialKey = document.getElementById('addMaterial').value;
+            const data = csbData[materialKey];
+
+            let quantity = 0;
+            let width = 0;
+            let length = 0;
+            let thickness = 0;
+
+            const addSidewalkWidth = document.getElementById('addSidewalkWidth');
+            const addSidewalkLength = document.getElementById('addSidewalkLength');
+            const addThickness = document.getElementById('addThickness');
+            const addCurbLength = document.getElementById('addCurbLength');
+
+            if (data.type === 'length') {
+                if (!addCurbLength.value) { alert('Bordür Uzunluğu girmelisiniz.'); return; }
+                length = parseFloat(addCurbLength.value);
+                quantity = length * similar;
+            } else if (data.type === 'area') {
+                if (!addSidewalkWidth.value || !addSidewalkLength.value) { alert('Genişlik ve Uzunluk girmelisiniz.'); return; }
+                width = parseFloat(addSidewalkWidth.value);
+                length = parseFloat(addSidewalkLength.value);
+                quantity = width * length * similar;
+            } else if (data.type === 'area_thick') {
+                if (!addSidewalkWidth.value || !addSidewalkLength.value || !addThickness.value) { alert('Genişlik, Uzunluk ve Kalınlık girmelisiniz.'); return; }
+                width = parseFloat(addSidewalkWidth.value);
+                length = parseFloat(addSidewalkLength.value);
+                thickness = parseFloat(addThickness.value);
+                quantity = width * length * thickness * (data.density || 1) * similar;
+            }
+
+            const newEntry = {
+                id: Date.now(),
+                projectName: projectName,
+                districtName: districtName,
+                streetName: streetName,
+                desc: desc,
+                kurumPoz: kurumPoz,
+                poz: data.poz,
+                tanim: data.tanim,
+                birim: data.birim,
+                width: width,
+                length: length,
+                thickness: thickness,
+                similar: similar,
+                quantity: quantity
+            };
+
+            entries.push(newEntry);
+
+            // Listeleri Güncelle
+            updateListsData(projectName, districtName, streetName, desc);
+
+            renderTable();
+            saveToLocal(false); // Otomatik kaydet
+            closeAddEntryModal();
+            document.getElementById('addForm').reset();
+        });
+
+        // Tabloyu ve hesaplamaları güncelleme fonksiyonu
+        function renderTable() {
+            const container = document.getElementById('tablesContainer');
+            container.innerHTML = '';
+
+            const filterStatusEl = document.getElementById('filterStatus');
+
+            // Başlığı Güncelle
+            const titleElement = document.getElementById('tableTitle');
+            if (currentFilter.type === 'project' && currentFilter.value) {
+                titleElement.textContent = `${currentFilter.value} - Metraj Cetveli`;
+                filterStatusEl.innerHTML = `<span class="font-semibold">Proje:</span> <span class="ml-2 text-blue-700">${currentFilter.value}</span>`;
+            } else if (currentFilter.type === 'district' && currentFilter.value) {
+                titleElement.textContent = `${currentFilter.value} - Metraj Cetveli`;
+                filterStatusEl.innerHTML = `<span class="font-semibold">İlçe:</span> <span class="ml-2 text-green-700">${currentFilter.value}</span>`;
+            } else {
+                titleElement.textContent = 'Metraj Cetveli';
+                filterStatusEl.innerHTML = `<span class="italic">Filtre uygulanmıyor...</span>`;
+            }
+
+            // Filtreleme
+            const filteredEntries = entries.filter(entry => {
+                if (currentFilter.type === 'project' && currentFilter.value) {
+                    return entry.projectName === currentFilter.value;
+                }
+                if (currentFilter.type === 'district' && currentFilter.value) {
+                    return entry.districtName === currentFilter.value;
+                }
+                return true;
+            });
+
+            // Projeye göre grupla
+            const groups = {};
+            filteredEntries.forEach(entry => {
+                const proj = entry.projectName || 'Tanımsız Proje';
+                if (!groups[proj]) groups[proj] = [];
+                groups[proj].push(entry);
+            });
+
+            const projectNames = Object.keys(groups).sort();
+
+            let grandTotal = 0;
+            let grandTotalSozlesme = 0;
+
+            if (projectNames.length === 0) {
+                container.innerHTML = '<div class="text-center text-gray-500 py-4 italic">Kayıt bulunamadı.</div>';
+            }
+
+            projectNames.forEach(projName => {
+                // Proje bazlı özet
+                let projeToplamTutar = 0;
+                let projeToplamTutarSozlesme = 0;
+                let summary = {};
+
+                // Proje Başlığı
+                const header = document.createElement('h3');
+                header.className = 'text-lg font-bold text-primary mt-4 mb-2 border-b border-gray-200 pb-1';
+                header.textContent = projName;
+                container.appendChild(header);
+
+                // Tablo Oluştur
+                const table = document.createElement('table');
+                table.className = 'min-w-full divide-y divide-gray-200 mb-6 border border-gray-200 rounded-lg overflow-hidden';
+                table.innerHTML = `
+                    <thead class="bg-primary text-white">
+                        <tr>
+                            <th class="px-3 py-3 text-left text-xs font-medium uppercase tracking-wider">Kurum Poz No</th>
+                            <th class="px-3 py-3 text-left text-xs font-medium uppercase tracking-wider">ÇSB Poz No</th>
+                            <th class="px-3 py-3 text-left text-xs font-medium uppercase tracking-wider">İmalat</th>
+                            <th class="px-3 py-3 text-left text-xs font-medium uppercase tracking-wider">İlçe</th>
+                            <th class="px-3 py-3 text-left text-xs font-medium uppercase tracking-wider">Cadde/Sokak</th>
+                            <th class="px-3 py-3 text-left text-xs font-medium uppercase tracking-wider">Yer</th>
+                            <th class="px-3 py-3 text-center text-xs font-medium uppercase tracking-wider">Birim</th>
+                            <th class="px-3 py-3 text-center text-xs font-medium uppercase tracking-wider">Benzer</th>
+                            <th class="px-3 py-3 text-right text-xs font-medium uppercase tracking-wider">En</th>
+                            <th class="px-3 py-3 text-right text-xs font-medium uppercase tracking-wider">Boy</th>
+                            <th class="px-3 py-3 text-right text-xs font-medium uppercase tracking-wider">Yük.</th>
+                            <th class="px-3 py-3 text-right text-xs font-medium uppercase tracking-wider">Alan (m²)</th>
+                            <th class="px-3 py-3 text-right text-xs font-medium uppercase tracking-wider">Yoğunluk (t/m³)</th>
+                            <th class="px-3 py-3 text-right text-xs font-medium uppercase tracking-wider">Miktar (m³/ton/m)</th>
+                            <th class="px-3 py-3 text-right text-xs font-medium uppercase tracking-wider" title="Yaklaşık Maliyet Birim Fiyat">Y.M. B.F. (₺)</th>
+                            <th class="px-3 py-3 text-right text-xs font-medium uppercase tracking-wider" title="Yaklaşık Maliyet Tutar">Y.M. Tutar (₺)</th>
+                            <th class="px-3 py-3 text-right text-xs font-medium uppercase tracking-wider text-blue-200" title="Sözleşme Birim Fiyat">Söz. B.F. (₺)</th>
+                            <th class="px-3 py-3 text-right text-xs font-medium uppercase tracking-wider text-blue-200" title="Sözleşme Tutar">Söz. Tutar (₺)</th>
+                            <th class="px-3 py-3 text-center text-xs font-medium uppercase tracking-wider">İşlem</th>
+                        </tr>
+                    </thead>
+                    <tbody class="bg-white divide-y divide-gray-200 text-sm"></tbody>
+                `;
+                const tbody = table.querySelector('tbody');
+
+                groups[projName].forEach(entry => {
+                    // Malzeme verisini ve fiyatı bul
+                    let materialData = null;
+                    for (const key in csbData) {
+                        if (csbData[key].poz === entry.poz) {
+                            materialData = csbData[key];
+                            break;
+                        }
+                    }
+
+                    const birimFiyat = materialData ? (materialData.fiyat_2026 || 0) : 0;
+                    const birimFiyatSozlesme = materialData ? (materialData.fiyat_sozlesme || 0) : 0;
+
+                    const tutar = entry.quantity * birimFiyat;
+                    const tutarSozlesme = entry.quantity * birimFiyatSozlesme;
+
+                    projeToplamTutar += tutar;
+                    projeToplamTutarSozlesme += tutarSozlesme;
+
+                    // Özeti güncelle
+                    if (!summary[entry.poz]) {
+                        summary[entry.poz] = { tanim: entry.tanim, miktar: 0, birim: entry.birim, birimFiyat: birimFiyat, tutar: 0, tutarSozlesme: 0 };
+                    }
+                    summary[entry.poz].miktar += entry.quantity;
+                    summary[entry.poz].tutar += tutar;
+                    summary[entry.poz].tutarSozlesme += tutarSozlesme;
+
+                    const densityText = materialData && materialData.density ? materialData.density.toFixed(2).replace('.', ',') : '-';
+
+                    const area = (entry.width || 0) * (entry.length || 0) * (entry.similar || 1);
+                    const areaText = area > 0 ? area.toFixed(2).replace('.', ',') : '-';
+
+                    const row = document.createElement('tr');
+                    row.className = "hover:bg-blue-50 cursor-pointer transition";
+
+                    // Satıra tıklayınca düzenleme aç (butonlara tıklanmadıysa)
+                    row.addEventListener('click', (e) => {
+                        if (!e.target.closest('button')) {
+                            openEditModal(entry.id);
+                        }
+                    });
+
+                    row.innerHTML = `
+                        <td class="px-3 py-2 whitespace-nowrap text-gray-600">${entry.kurumPoz || '-'}</td>
+                        <td class="px-3 py-2 whitespace-nowrap font-medium text-gray-900">${entry.poz}</td>
+                        <td class="px-3 py-2 text-left">${entry.tanim}</td>
+                        <td class="px-3 py-2 text-left">${entry.districtName || '-'}</td>
+                        <td class="px-3 py-2 text-left">${entry.streetName || '-'}</td>
+                        <td class="px-3 py-2 text-left">${entry.desc}</td>
+                        <td class="px-3 py-2 text-center">${entry.birim}</td>
+                        <td class="px-3 py-2 text-center">${entry.similar || 1}</td>
+                        <td class="px-3 py-2 text-right">${entry.width > 0 ? entry.width.toFixed(2).replace('.', ',') : '-'}</td>
+                        <td class="px-3 py-2 text-right">${entry.length.toFixed(2).replace('.', ',')}</td>
+                        <td class="px-3 py-2 text-right">${entry.thickness > 0 ? entry.thickness.toFixed(2).replace('.', ',') : '-'}</td>
+                        <td class="px-3 py-2 text-right">${areaText}</td>
+                        <td class="px-3 py-2 text-right">${densityText}</td>
+                        <td class="px-3 py-2 text-right font-bold text-secondary">${entry.quantity.toFixed(2).replace('.', ',')}</td>
+                        <td class="px-3 py-2 text-right text-gray-600">${formatNumber(birimFiyat)}</td>
+                        <td class="px-3 py-2 text-right font-bold text-gray-700">${formatNumber(tutar)}</td>
+                        <td class="px-3 py-2 text-right text-blue-600">${formatNumber(birimFiyatSozlesme)}</td>
+                        <td class="px-3 py-2 text-right font-bold text-blue-700">${formatNumber(tutarSozlesme)}</td>
+                        <td class="px-3 py-2 text-center">
+                            <button class="edit-btn bg-blue-500 hover:bg-blue-600 text-white px-2 py-1 rounded text-xs transition mr-1" title="Düzenle"><i class="fas fa-edit"></i></button>
+                            <button class="delete-btn bg-red-500 hover:bg-red-600 text-white px-2 py-1 rounded text-xs transition" title="Sil"><i class="fas fa-trash"></i></button>
+                        </td>
+                    `;
+
+                    // Butonlara event listener ekle
+                    const editBtn = row.querySelector('.edit-btn');
+                    editBtn.addEventListener('click', (e) => {
+                        e.stopPropagation();
+                        openEditModal(entry.id);
+                    });
+
+                    const deleteBtn = row.querySelector('.delete-btn');
+                    deleteBtn.addEventListener('click', (e) => {
+                        e.stopPropagation();
+                        deleteEntry(entry.id);
+                    });
+
+                    tbody.appendChild(row);
+                });
+                container.appendChild(table);
+
+                grandTotal += projeToplamTutar;
+                grandTotalSozlesme += projeToplamTutarSozlesme;
+
+                // Özeti Yazdır (Her tablo altına)
+                const summaryDiv = document.createElement('div');
+                summaryDiv.className = 'bg-gray-50 p-4 rounded-lg border border-gray-200 mb-8';
+                let summaryHTML = `<h4 class="font-bold text-gray-700 mb-2 text-sm">Metraj İcmali (Özet)</h4>
+                    <table class="w-full text-sm">
+                        <thead>
+                            <tr class="border-b-2 border-gray-300">
+                                <th class="py-1 text-left font-semibold">İmalat</th>
+                                <th class="py-1 text-right font-semibold">Toplam Miktar</th>
+                                <th class="py-1 text-right font-semibold">Y.M. Tutar (₺)</th>
+                                <th class="py-1 text-right font-semibold text-blue-700">Sözleşme Tutar (₺)</th>
+                            </tr>
+                        </thead>
+                        <tbody>`;
+                for (let key in summary) {
+                    summaryHTML += `
+                        <tr class="border-b border-gray-200 last:border-0">
+                            <td class="py-1 text-left"><span class="font-semibold text-primary">${key}</span> - ${summary[key].tanim}</td>
+                            <td class="py-1 text-right font-bold text-secondary">${summary[key].miktar.toFixed(2).replace('.', ',')} ${summary[key].birim}</td>
+                            <td class="py-1 text-right font-bold text-gray-700">${formatNumber(summary[key].tutar)}</td>
+                            <td class="py-1 text-right font-bold text-blue-700">${formatNumber(summary[key].tutarSozlesme)}</td>
+                        </tr>`;
+                }
+                summaryHTML += '</tbody></table>';
+                summaryDiv.innerHTML = summaryHTML;
+
+                // Proje Toplam Tutarını Ekle
+                const totalDiv = document.createElement('div');
+                totalDiv.className = 'flex justify-end gap-8 mt-4';
+                totalDiv.innerHTML = `
+                    <div class="text-right font-bold text-lg text-gray-600">
+                        Yaklaşık Maliyet: <span class="text-gray-800">${formatNumber(projeToplamTutar)} ₺</span>
+                    </div>
+                    <div class="text-right font-bold text-xl text-primary">
+                        Sözleşme Tutarı: <span class="text-blue-700">${formatNumber(projeToplamTutarSozlesme)} ₺</span>
+                    </div>
+                `;
+                summaryDiv.appendChild(totalDiv);
+
+                container.appendChild(summaryDiv);
+            });
+
+            // Genel Toplamı Yazdır
+            if (projectNames.length > 0) {
+                const grandTotalDiv = document.createElement('div');
+                grandTotalDiv.className = 'mt-8 p-6 bg-white border border-gray-200 rounded-lg shadow-lg grid grid-cols-1 md:grid-cols-2 gap-4';
+                grandTotalDiv.innerHTML = `
+                    <div class="text-center border-r border-gray-200">
+                        <h3 class="text-lg font-bold uppercase tracking-wider text-gray-500">Yaklaşık Maliyet</h3>
+                        <p class="text-3xl font-light mt-2 text-gray-700">${formatNumber(grandTotal)} ₺</p>
+                    </div>
+                    <div class="text-center">
+                        <h3 class="text-xl font-bold uppercase tracking-wider text-blue-600">Sözleşme Tutarı</h3>
+                        <p class="text-4xl font-bold mt-2 text-blue-800">${formatNumber(grandTotalSozlesme)} ₺</p>
+                    </div>
+                `;
+                container.appendChild(grandTotalDiv);
+            }
+        }
+
+        // Satır silme fonksiyonu
+        function deleteEntry(id) {
+            if (confirm('Bu kaydı silmek istediğinize emin misiniz?')) {
+                entries = entries.filter(entry => entry.id !== id);
+                renderTable();
+                saveToLocal(false);
+            }
+        }
+
+        function clearFilters() {
+            currentFilter = { type: null, value: '' };
+            renderTable();
+            saveToLocal(false);
+        }
+
+        // Tüm verileri temizleme
+        function resetData() {
+            if (confirm('Tüm veriler silinecek. Emin misiniz?')) {
+                entries = [];
+                renderTable();
+                saveToLocal(false);
+            }
+        }
+
+        // --- Filtre Modalı İşlemleri ---
+        function openFilterModal(type) {
+            currentListKey = type; // 'projects' or 'districts'
+            const modal = document.getElementById('filterSelectionModal');
+            const title = document.getElementById('filterModalTitle');
+
+            if (type === 'projects') title.textContent = 'Proje Seçiniz (Filtrele)';
+            else title.textContent = 'İlçe Seçiniz (Filtrele)';
+
+            renderFilterList(type);
+            modal.classList.remove('hidden');
+            modal.classList.add('flex');
+        }
+
+        function closeFilterModal() {
+            const modal = document.getElementById('filterSelectionModal');
+            modal.classList.add('hidden');
+            modal.classList.remove('flex');
+        }
+
+        // --- Genel Filtre Modalı ---
+        function openGeneralFilterModal() {
+            const modal = document.getElementById('generalFilterModal');
+            modal.classList.remove('hidden');
+            modal.classList.add('flex');
+        }
+
+        function closeGeneralFilterModal() {
+            const modal = document.getElementById('generalFilterModal');
+            modal.classList.add('hidden');
+            modal.classList.remove('flex');
+        }
+
+        function addNewProjectFromModal() {
+            const input = document.getElementById('newProjectInput');
+            if (!input) return;
+            const val = input.value.trim();
+            if (!val) return;
+
+            if (lists.projects.includes(val)) {
+                alert('Bu proje zaten listede var.');
+                return;
+            }
+
+            lists.projects.push(val);
+            lists.projects.sort();
+            saveToLocal(false);
+            renderFilterList('projects');
+        }
+
+        function renderFilterList(type) {
+            const container = document.getElementById('filterModalListContainer');
+            container.innerHTML = '';
+
+            let usedItems = [];
+            if (type === 'projects') {
+                // Projeler için kayıtlı listeyi kullan
+                const usedProjects = [...new Set(entries.map(e => e.projectName).filter(p => p))];
+                usedProjects.forEach(p => {
+                    if (!lists.projects.includes(p)) lists.projects.push(p);
+                });
+                lists.projects.sort();
+                usedItems = lists.projects;
+            } else {
+                usedItems = [...new Set(entries.map(e => e.districtName).filter(x => x))].sort();
+            }
+
+            // Yeni Proje Ekleme Alanı
+            if (type === 'projects') {
+                const addDiv = document.createElement('div');
+                addDiv.className = 'p-3 border-b border-gray-200 bg-gray-50';
+                addDiv.innerHTML = `
+                    <div class="flex gap-2">
+                        <input type="text" id="newProjectInput" placeholder="Yeni Proje Adı" class="flex-1 p-2 border border-gray-300 rounded text-sm focus:ring-2 focus:ring-secondary focus:outline-none" onkeypress="if(event.key === 'Enter') addNewProjectFromModal()">
+                        <button onclick="addNewProjectFromModal()" class="bg-green-600 hover:bg-green-700 text-white px-3 py-1 rounded text-sm transition"><i class="fas fa-plus"></i> Ekle</button>
+                    </div>
+                `;
+                container.appendChild(addDiv);
+            }
+
+            // "Tümünü Göster" seçeneği
+            const allDiv = document.createElement('div');
+            allDiv.className = 'flex justify-between items-center p-3 border-b border-gray-100 hover:bg-blue-50 transition text-sm text-gray-700 cursor-pointer font-bold text-secondary';
+            allDiv.innerHTML = `<span class="flex-1"><i class="fas fa-layer-group mr-2"></i>Tüm ${type === 'projects' ? 'Projeler' : 'İlçeler'}</span>`;
+            allDiv.onclick = () => {
+                currentFilter = { type: null, value: '' };
+                renderTable();
+                saveToLocal(false);
+                closeFilterModal();
+            };
+            container.appendChild(allDiv);
+
+            if (usedItems.length === 0) {
+                const msg = document.createElement('div');
+                msg.className = 'p-4 text-center text-gray-500 italic';
+                msg.textContent = 'Kayıtlı veri bulunamadı.';
+                container.appendChild(msg);
+                return;
+            }
+
+            usedItems.forEach(item => {
+                const div = document.createElement('div');
+                div.className = 'flex justify-between items-center p-3 border-b border-gray-100 hover:bg-blue-50 transition text-sm text-gray-700 group cursor-pointer';
+
+                const span = document.createElement('span');
+                span.className = 'flex-1';
+                span.textContent = item;
+                span.onclick = () => {
+                    currentFilter = { type: type === 'projects' ? 'project' : 'district', value: item };
+                    renderTable();
+                    saveToLocal(false);
+                    closeFilterModal();
+                };
+
+                const btnGroup = document.createElement('div');
+                btnGroup.className = 'flex items-center gap-2 opacity-0 group-hover:opacity-100 transition-opacity';
+
+                const editBtn = document.createElement('button');
+                editBtn.className = 'text-blue-500 hover:text-blue-700 px-2 py-1';
+                editBtn.innerHTML = '<i class="fas fa-pen"></i>';
+                editBtn.title = `"${item}" adını düzenle`;
+                editBtn.onclick = (e) => {
+                    e.stopPropagation();
+                    editModalItem(item, () => renderFilterList(type));
+                };
+                btnGroup.appendChild(editBtn);
+
+                // Add delete button only for projects
+                if (type === 'projects') {
+                    const deleteBtn = document.createElement('button');
+                    deleteBtn.className = 'text-red-500 hover:text-red-700 px-2 py-1';
+                    deleteBtn.innerHTML = '<i class="fas fa-trash"></i>';
+                    deleteBtn.title = `"${item}" projesini sil`;
+                    deleteBtn.onclick = (e) => {
+                        e.stopPropagation();
+                        deleteProject(item);
+                    };
+                    btnGroup.appendChild(deleteBtn);
+                }
+
+                div.appendChild(span);
+                div.appendChild(btnGroup);
+                container.appendChild(div);
+            });
+        }
+
+        function deleteProject(projectName) {
+            if (!confirm(`'${projectName}' projesini ve içindeki tüm kayıtları kalıcı olarak silmek istediğinizden emin misiniz? Bu işlem geri alınamaz.`)) {
+                return;
+            }
+
+            // 1. Delete all entries for this project
+            entries = entries.filter(entry => entry.projectName !== projectName);
+
+            // 2. Remove project from the main project list
+            lists.projects = lists.projects.filter(p => p !== projectName);
+
+            // 3. Remove the project's street list
+            if (lists.streets[projectName]) {
+                delete lists.streets[projectName];
+            }
+
+            // 4. Re-render everything
+            renderTable();
+            saveToLocal(false);
+            renderFilterList('projects');
+        }
+
+        // --- Liste Yönetimi ---
+
+        function updateListsData(proj, district, street, desc) {
+            // Proje Ekle
+            if (proj && !lists.projects.includes(proj)) {
+                lists.projects.push(proj);
+            }
+
+            // İlçe Ekle
+            if (district && !lists.districts.includes(district)) {
+                lists.districts.push(district);
+            }
+
+            // Sokak Ekle (Projeye bağlı)
+            if (proj && street) {
+                if (!lists.streets[proj]) lists.streets[proj] = [];
+                if (!lists.streets[proj].includes(street)) {
+                    lists.streets[proj].push(street);
+                }
+            }
+
+            // Açıklama Ekle
+            if (desc && !lists.descriptions.includes(desc)) {
+                lists.descriptions.push(desc);
+            }
+        }
+
+        // --- Modal İşlemleri ---
+        function openSelectionModal(inputId, listKey) {
+            currentModalTarget = inputId;
+            currentListKey = listKey;
+
+            if (listKey === 'streets') {
+                let projName = '';
+                const inputElement = document.getElementById(inputId);
+                const form = inputElement.closest('form');
+
+                if (form) {
+                    // addForm veya editForm içindeyiz
+                    const projInput = form.querySelector('[id*="ProjectName"]');
+                    if (projInput) {
+                        projName = projInput.value.trim();
+                    }
+                } else if (!projName) {
+                    alert('Önce proje seçmelisiniz.');
+                    return;
+                }
+                currentProjectForStreetModal = projName;
+            } else {
+                currentProjectForStreetModal = null;
+            }
+
+            const modal = document.getElementById('selectionModal');
+            const title = document.getElementById('modalTitle');
+
+            if (listKey === 'projects') title.textContent = 'Proje Seçiniz';
+            else if (listKey === 'districts') title.textContent = 'İlçe Seçiniz';
+            else if (listKey === 'descriptions') title.textContent = 'Açıklama Seçiniz';
+            else if (listKey === 'streets') title.textContent = `${currentProjectForStreetModal} - Cadde/Sokak Seçiniz`;
+
+            renderModalList();
+            modal.classList.remove('hidden');
+            modal.classList.add('flex');
+        }
+
+        function renderModalList() {
+            const container = document.getElementById('modalListContainer');
+            let items = [];
+
+            if (currentListKey === 'projects') items = lists.projects;
+            else if (currentListKey === 'districts') items = lists.districts;
+            else if (currentListKey === 'descriptions') items = lists.descriptions;
+            else if (currentListKey === 'streets') {
+                if (currentProjectForStreetModal && lists.streets[currentProjectForStreetModal]) {
+                    items = lists.streets[currentProjectForStreetModal];
+                }
+            }
+
+            container.innerHTML = '';
+
+            // "Tüm Projeler" seçeneği ekle
+            if (currentListKey === 'projects') {
+                const div = document.createElement('div');
+                div.className = 'flex justify-between items-center p-3 border-b border-gray-100 hover:bg-blue-50 transition text-sm text-gray-700 cursor-pointer font-bold text-secondary';
+                div.innerHTML = '<span class="flex-1"><i class="fas fa-layer-group mr-2"></i>Tüm Projeler</span>';
+                div.onclick = () => {
+                };
+                container.appendChild(div);
+            }
+
+            if (!items || items.length === 0) {
+                const msg = document.createElement('div');
+                msg.className = 'p-4 text-center text-gray-500 italic';
+                msg.textContent = 'Kayıtlı veri bulunamadı.';
+                container.appendChild(msg);
+            } else {
+                items.forEach(item => {
+                    const div = document.createElement('div');
+                    div.className = 'flex justify-between items-center p-3 border-b border-gray-100 hover:bg-blue-50 transition text-sm text-gray-700 group cursor-pointer';
+                    div.onclick = () => selectModalItem(item);
+
+                    const span = document.createElement('span');
+                    span.className = 'flex-1 cursor-pointer';
+                    span.textContent = item;
+                    span.onclick = () => selectModalItem(item);
+
+                    const btnGroup = document.createElement('div');
+                    btnGroup.className = 'flex gap-2 opacity-0 group-hover:opacity-100 transition-opacity';
+
+                    // Düzenle Butonu
+                    const btnEdit = document.createElement('button');
+                    btnEdit.innerHTML = '<i class="fas fa-edit"></i>';
+                    btnEdit.className = 'text-blue-500 hover:text-blue-700 px-1';
+                    btnEdit.title = 'Düzenle';
+                    btnEdit.onclick = (e) => { e.stopPropagation(); editModalItem(item); };
+
+                    // Sil Butonu
+                    const btnDelete = document.createElement('button');
+                    btnDelete.innerHTML = '<i class="fas fa-trash"></i>';
+                    btnDelete.className = 'text-red-500 hover:text-red-700 px-1';
+                    btnDelete.title = 'Sil';
+                    btnDelete.onclick = (e) => { e.stopPropagation(); deleteModalItem(item); };
+
+                    btnGroup.appendChild(btnEdit);
+                    btnGroup.appendChild(btnDelete);
+
+                    div.appendChild(span);
+                    div.appendChild(btnGroup);
+                    container.appendChild(div);
+                });
+            }
+        }
+
+        function closeSelectionModal() {
+            const modal = document.getElementById('selectionModal');
+            modal.classList.add('hidden');
+            modal.classList.remove('flex');
+        }
+
+        function selectModalItem(value) {
+            if (currentModalTarget) {
+                const input = document.getElementById(currentModalTarget);
+                input.value = value;
+
+                if (input.closest('form') === null) { // Ana paneldeki bir input ise (artık yok ama geleceğe dönük)
+                    saveToLocal(false);
+                }
+            }
+            closeSelectionModal();
+        }
+
+        function deleteModalItem(value) {
+            if (!confirm(`"${value}" listeden silinecek. Emin misiniz?`)) return;
+
+            if (currentListKey === 'streets') {
+                if (currentProjectForStreetModal && lists.streets[currentProjectForStreetModal]) {
+                    lists.streets[currentProjectForStreetModal] = lists.streets[currentProjectForStreetModal].filter(i => i !== value);
+                }
+
+            } else {
+                if (Array.isArray(lists[currentListKey])) {
+                    lists[currentListKey] = lists[currentListKey].filter(i => i !== value);
+                }
+            }
+            saveToLocal(false);
+            renderModalList();
+        }
+
+        function editModalItem(oldValue, onUpdateCallback) { // Added callback
+            const newValue = prompt("Yeni değeri giriniz:", oldValue);
+            if (newValue === null || newValue.trim() === "" || newValue === oldValue) return;
+            const val = newValue.trim();
+
+            // Listeyi Güncelle
+            if (currentListKey === 'streets') {
+                if (currentProjectForStreetModal && lists.streets[currentProjectForStreetModal]) {
+                    const idx = lists.streets[currentProjectForStreetModal].indexOf(oldValue);
+                    if (idx !== -1) lists.streets[currentProjectForStreetModal][idx] = val;
+                }
+            } else {
+                if (Array.isArray(lists[currentListKey])) {
+                    const idx = lists[currentListKey].indexOf(oldValue);
+                    if (idx !== -1) lists[currentListKey][idx] = val;
+                }
+            }
+
+            // Kayıtları Güncelle
+            if (confirm("Bu değişikliği mevcut kayıtlara da yansıtmak ister misiniz?")) {
+                entries.forEach(e => {
+                    if (currentListKey === 'projects' && e.projectName === oldValue) e.projectName = val;
+                    if (currentListKey === 'districts' && e.districtName === oldValue) e.districtName = val;
+                    if (currentListKey === 'streets' && e.streetName === oldValue) {
+                        // Sadece ilgili projenin sokağını güncelle
+                        if (e.projectName === currentProjectForStreetModal) e.streetName = val;
+                    }
+                    if (currentListKey === 'descriptions' && e.desc === oldValue) e.desc = val;
+                });
+
+                // Proje adı değiştiyse sokak listesi anahtarını da taşı
+                if (currentListKey === 'projects') {
+                    if (lists.streets[oldValue]) {
+                        lists.streets[val] = lists.streets[oldValue];
+                        delete lists.streets[oldValue];
+                    }
+                }
+                renderTable();
+            }
+
+            saveToLocal(false);
+            if (onUpdateCallback) { // Use callback if provided
+                onUpdateCallback();
+            } else {
+                renderModalList(); // Default behavior
+            }
+        }
+
+        // Modal dışına tıklayınca kapat
+        window.onclick = function (event) {
+            const selectionModal = document.getElementById('selectionModal');
+            if (event.target == selectionModal) {
+                selectionModal.classList.add('hidden');
+                selectionModal.classList.remove('flex');
+            }
+            const filterModal = document.getElementById('filterSelectionModal');
+            if (event.target == filterModal) {
+                filterModal.classList.add('hidden');
+                filterModal.classList.remove('flex');
+            }
+            const generalFilterModal = document.getElementById('generalFilterModal');
+            if (event.target == generalFilterModal) {
+                generalFilterModal.classList.add('hidden');
+                generalFilterModal.classList.remove('flex');
+            }
+        }
+
+        // --- Yeni İmalat Ekleme Modalı ---
+        function openAddEntryModal() {
+            document.getElementById('addForm').reset();
+
+            toggleAddInputs();
+
+            const modal = document.getElementById('addEntryModal');
+            modal.classList.remove('hidden');
+            modal.classList.add('flex');
+            document.getElementById('addProjectName').focus();
+        }
+
+        function closeAddEntryModal() {
+            const modal = document.getElementById('addEntryModal');
+            modal.classList.add('hidden');
+            modal.classList.remove('flex');
+        }
+
+        function toggleAddInputs() {
+            const materialKey = document.getElementById('addMaterial').value;
+            if (!materialKey) return;
+            const type = csbData[materialKey].type;
+
+            document.getElementById('addAreaInputs').style.display = (type === 'area' || type === 'area_thick') ? 'grid' : 'none';
+            document.getElementById('addThicknessInput').style.display = (type === 'area_thick') ? 'block' : 'none';
+            document.getElementById('addLengthInput').style.display = (type === 'length') ? 'block' : 'none';
+
+            document.getElementById('addSidewalkWidth').required = (type === 'area' || type === 'area_thick');
+            document.getElementById('addSidewalkLength').required = (type === 'area' || type === 'area_thick');
+            document.getElementById('addThickness').required = (type === 'area_thick');
+            document.getElementById('addCurbLength').required = (type === 'length');
+        }
+
+
+
+
+        // --- Düzenleme Modalı İşlemleri ---
+        function openEditModal(id) {
+            const entry = entries.find(e => e.id === id);
+            if (!entry) return;
+
+            // Malzeme seçeneklerini doldur (eğer boşsa)
+            const editSelect = document.getElementById('editMaterial');
+            if (editSelect.options.length === 0) {
+                editSelect.innerHTML = document.getElementById('addMaterial').innerHTML;
+            }
+
+            document.getElementById('editId').value = entry.id;
+            document.getElementById('editProjectName').value = entry.projectName || '';
+            document.getElementById('editDistrictName').value = entry.districtName || '';
+            document.getElementById('editStreetName').value = entry.streetName || '';
+            document.getElementById('editDesc').value = entry.desc || '';
+            document.getElementById('editKurumPoz').value = entry.kurumPoz || '';
+            document.getElementById('editSimilar').value = entry.similar || 1;
+
+            // Malzemeyi bul ve seç
+            let matKey = '';
+            for (const [key, val] of Object.entries(csbData)) {
+                if (val.poz === entry.poz && val.tanim === entry.tanim) {
+                    matKey = key;
+                    break;
+                }
+            }
+            if (matKey) editSelect.value = matKey;
+
+            document.getElementById('editSidewalkWidth').value = entry.width || '';
+            document.getElementById('editSidewalkLength').value = entry.length || '';
+            document.getElementById('editThickness').value = entry.thickness || '';
+            // Bordür uzunluğu quantity içinde saklanır
+            document.getElementById('editCurbLength').value = (matKey && csbData[matKey].type === 'length') ? entry.quantity : '';
+
+            toggleEditInputs();
+            document.getElementById('editModal').classList.remove('hidden');
+            document.getElementById('editModal').classList.add('flex');
+        }
+
+        function closeEditModal() {
+            document.getElementById('editModal').classList.add('hidden');
+            document.getElementById('editModal').classList.remove('flex');
+        }
+
+        function toggleEditInputs() {
+            const materialKey = document.getElementById('editMaterial').value;
+            if (!materialKey) return;
+            const type = csbData[materialKey].type;
+
+            if (type === 'length') {
+                document.getElementById('editAreaInputs').style.display = 'none';
+                document.getElementById('editThicknessInput').style.display = 'none';
+                document.getElementById('editLengthInput').style.display = 'block';
+            } else if (type === 'area') {
+                document.getElementById('editAreaInputs').style.display = 'grid';
+                document.getElementById('editThicknessInput').style.display = 'none';
+                document.getElementById('editLengthInput').style.display = 'none';
+            } else if (type === 'area_thick') {
+                document.getElementById('editAreaInputs').style.display = 'grid';
+                document.getElementById('editThicknessInput').style.display = 'block';
+                document.getElementById('editLengthInput').style.display = 'none';
+            }
+        }
+
+        function saveEditEntry() {
+            const id = parseInt(document.getElementById('editId').value);
+            const entryIndex = entries.findIndex(e => e.id === id);
+            if (entryIndex === -1) return;
+
+            const matKey = document.getElementById('editMaterial').value;
+            const data = csbData[matKey];
+
+            const width = parseFloat(document.getElementById('editSidewalkWidth').value) || 0;
+            const length = parseFloat(document.getElementById('editSidewalkLength').value) || 0;
+            const thickness = parseFloat(document.getElementById('editThickness').value) || 0;
+            const curbLen = parseFloat(document.getElementById('editCurbLength').value) || 0;
+            const similar = parseFloat(document.getElementById('editSimilar').value) || 1;
+
+            let quantity = 0;
+            if (data.type === 'length') quantity = curbLen * similar;
+            else if (data.type === 'area') quantity = width * length * similar;
+            else if (data.type === 'area_thick') quantity = width * length * thickness * (data.density || 1) * similar;
+
+            entries[entryIndex] = {
+                ...entries[entryIndex],
+                projectName: document.getElementById('editProjectName').value,
+                districtName: document.getElementById('editDistrictName').value,
+                streetName: document.getElementById('editStreetName').value,
+                desc: document.getElementById('editDesc').value,
+                kurumPoz: document.getElementById('editKurumPoz').value,
+                poz: data.poz, tanim: data.tanim, birim: data.birim,
+                width: (data.type !== 'length') ? width : 0,
+                length: (data.type === 'length') ? curbLen : length,
+                thickness: (data.type === 'area_thick') ? thickness : 0,
+                similar: similar,
+                quantity: quantity
+            };
+
+            updateListsData(entries[entryIndex].projectName, entries[entryIndex].districtName, entries[entryIndex].streetName, entries[entryIndex].desc);
+            saveToLocal(false);
+            renderTable();
+            closeEditModal();
+        }
+
+        // --- Yazdırma Modalı İşlemleri ---
+        function openPrintModal() {
+            document.getElementById('printModal').classList.remove('hidden');
+            document.getElementById('printModal').classList.add('flex');
+        }
+
+        function closePrintModal() {
+            document.getElementById('printModal').classList.add('hidden');
+            document.getElementById('printModal').classList.remove('flex');
+        }
+
+        function printSelected() {
+            const printMetraj = document.getElementById('printMetraj').checked;
+            const printFiyat = document.getElementById('printFiyat').checked;
+            const printTarif = document.getElementById('printTarif').checked;
+            const paperSize = document.getElementById('paperSize').value;
+            const printColor = document.getElementById('printColor').value; // Seçilen renk seçeneğini al
+
+            const tablesContainer = document.getElementById('tablesContainer');
+            const tableTitle = document.getElementById('tableTitle');
+            const priceListContainer = document.getElementById('priceListContainer');
+            const definitionsContainer = document.getElementById('definitionsContainer');
+
+            if (!printMetraj) {
+                tablesContainer.classList.add('print-hidden');
+                if (tableTitle) tableTitle.classList.add('print-hidden');
+            }
+            if (!printFiyat) priceListContainer.classList.add('print-hidden');
+            if (!printTarif) definitionsContainer.classList.add('print-hidden');
+
+            // Eğer siyah beyaz seçildiyse gri tonlama filtresini uygula
+            if (printColor === 'grayscale') {
+                document.body.classList.add('print-grayscale');
+            }
+
+            // Kağıt boyutunu dinamik olarak ayarla
+            const styleId = 'dynamic-print-style';
+            let style = document.getElementById(styleId);
+            if (!style) {
+                style = document.createElement('style');
+                style.id = styleId;
+                document.head.appendChild(style);
+            }
+            style.innerHTML = `@media print { @page { size: ${paperSize}; margin: 1cm; } }`;
+
+            closePrintModal();
+            window.print();
+
+            // Yazdırma penceresi kapandıktan sonra (veya hemen) görünürlüğü geri yükle
+            setTimeout(() => {
+                tablesContainer.classList.remove('print-hidden');
+                if (tableTitle) tableTitle.classList.remove('print-hidden');
+                priceListContainer.classList.remove('print-hidden');
+                definitionsContainer.classList.remove('print-hidden');
+                document.body.classList.remove('print-grayscale'); // Gri tonlama filtresini kaldır
+            }, 500);
+        }
+
+        // --- Yeni Özellikler ---
+
+        // Örnek Proje Verisi Yükle
+        function loadSampleProject() {
+            if (!confirm("Bu işlem, listeye 1km'lik örnek bir yol projesi verilerini ekleyecektir. Mevcut veriler silinmez. Devam etmek istiyor musunuz?")) {
+                return;
+            }
+
+            const projectName = "Örnek 1km Yol Projesi";
+            const districtName = "Merkez";
+            const streetName = "Ana Arter";
+            const roadLength = 1000;    // 1 km
+            const sidewalkWidth = 2;     // 2 metre
+            const roadLaneWidth = 7;     // 7 metre
+            const binderThickness = 0.08; // 8cm
+            const wearThickness = 0.05;   // 5cm
+            const stabilizeThickness = 0.20; // 20cm
+
+            const createEntry = (desc, materialKey, width, length, thickness = 0, similar = 1) => {
+                const data = csbData[materialKey];
+                let quantity = 0;
+                let entryWidth = width;
+                let entryLength = length;
+                let entryThickness = thickness;
+
+                if (data.type === 'length') {
+                    quantity = length * similar;
+                    entryWidth = 0;
+                    entryThickness = 0;
+                } else if (data.type === 'area') {
+                    quantity = width * length * similar;
+                    entryThickness = 0;
+                } else if (data.type === 'area_thick') {
+                    quantity = width * length * thickness * (data.density || 1) * similar;
+                }
+
+                return {
+                    id: Date.now() + Math.random(), // Hızlı eklemede ID'lerin çakışmasını önle
+                    projectName: projectName,
+                    districtName: districtName,
+                    streetName: streetName,
+                    desc: desc,
+                    kurumPoz: "",
+                    poz: data.poz, tanim: data.tanim, birim: data.birim,
+                    width: entryWidth, length: entryLength, thickness: entryThickness,
+                    similar: similar,
+                    quantity: quantity
+                };
+            };
+
+            const newEntries = [
+                // Stabilize Dolgu
+                createEntry("Kaldırım Altı Stabilize", "stabilize", sidewalkWidth, roadLength, stabilizeThickness, 2),
+                createEntry("Yol Altı Stabilize", "stabilize", roadLaneWidth, roadLength, stabilizeThickness, 2),
+                // Kaldırımlar
+                createEntry("Kaldırım Döşemesi", "parke8", sidewalkWidth, roadLength, 0, 2),
+                // Bordürler
+                createEntry("Yol Kenarı Bordürü", "bordur", 0, roadLength, 0, 2),
+                createEntry("Orta Refüj Kenar Bordürü", "bordur", 0, roadLength, 0, 2),
+                // Çim Bordürleri
+                createEntry("Kaldırım Arkası Çim Bordürü", "cimbordur", 0, roadLength, 0, 2),
+                // Asfalt
+                createEntry("Binder Tabakası", "binder", roadLaneWidth, roadLength, binderThickness, 2),
+                createEntry("Aşınma Tabakası", "asinma", roadLaneWidth, roadLength, wearThickness, 2),
+            ];
+
+            entries.push(...newEntries);
+            updateListsData(projectName, districtName, streetName, "");
+            renderTable();
+            saveToLocal(false);
+            alert("Örnek proje verileri başarıyla eklendi.");
+        }
+
+        // LocalStorage Kayıt
+        function saveToLocal(showAlert = true) {
+            const inputs = {
+                currentFilter: currentFilter
+            };
+            const data = {
+                entries: entries,
+                inputs: inputs,
+                lists: lists
+            };
+            localStorage.setItem('yolMetrajData', JSON.stringify(data));
+            if (showAlert) alert('Veriler tarayıcı hafızasına kaydedildi.');
+        }
+
+        // LocalStorage Yükle
+        function loadFromLocal() {
+            const dataStr = localStorage.getItem('yolMetrajData');
+            if (dataStr) {
+                const data = JSON.parse(dataStr);
+                if (Array.isArray(data)) {
+                    entries = data;
+                } else {
+                    entries = data.entries || [];
+                    if (data.inputs) {
+                        currentFilter = data.inputs.currentFilter || { type: null, value: '' };
+                    }
+                    if (data.lists) {
+                        lists = data.lists;
+                        // İzmir ilçelerini mevcut listeye entegre et (Eksikse ekle)
+                        if (!lists.districts) lists.districts = [];
+                        IZMIR_ILCELERI.forEach(ilce => {
+                            if (!lists.districts.includes(ilce)) lists.districts.push(ilce);
+                        });
+                        // Alfabetik sırala
+                        lists.districts.sort((a, b) => a.localeCompare(b, 'tr'));
+                    }
+                }
+                renderTable();
+                toggleInputs();
+            }
+        }
+
+        // Yedekle (JSON İndir)
+        function downloadBackup() {
+            const inputs = {
+                currentFilter: currentFilter
+            };
+            const data = { entries: entries, inputs: inputs, lists: lists };
+            const dataStr = "data:text/json;charset=utf-8," + encodeURIComponent(JSON.stringify(data));
+            const downloadAnchorNode = document.createElement('a');
+            downloadAnchorNode.setAttribute("href", dataStr);
+
+            const now = new Date();
+            const dateStr = now.toLocaleDateString('tr-TR').replace(/\./g, '-');
+            const timeStr = now.toLocaleTimeString('tr-TR').replace(/:/g, '-');
+            downloadAnchorNode.setAttribute("download", `Yol Yapım ${dateStr} ${timeStr}.json`);
+
+            document.body.appendChild(downloadAnchorNode);
+            downloadAnchorNode.click();
+            downloadAnchorNode.remove();
+        }
+
+        // Yedek Yükle
+        function restoreBackup(input) {
+            const file = input.files[0];
+            if (!file) return;
+            const reader = new FileReader();
+            reader.onload = function (e) {
+                try {
+                    const data = JSON.parse(e.target.result);
+                    // Veriyi localStorage'a yaz ve yükle
+                    localStorage.setItem('yolMetrajData', JSON.stringify(data));
+                    loadFromLocal();
+                    alert('Yedek başarıyla yüklendi.');
+                } catch (err) {
+                    alert('Dosya okuma hatası: ' + err);
+                }
+            };
+            reader.readAsText(file);
+            input.value = '';
+        }
+
+        // Excel İndir
+        function exportToExcel() {
+            const detailTable = document.getElementById('tablesContainer').innerHTML;
+            const priceList = document.getElementById('priceListContainer').innerHTML;
+            const definitions = document.getElementById('definitionsContainer').innerHTML;
+
+            let tableHTML = `
+                <html xmlns:o="urn:schemas-microsoft-com:office:office" xmlns:x="urn:schemas-microsoft-com:office:excel" xmlns="http://www.w3.org/TR/REC-html40">
+                <head>
+                    <meta charset="UTF-8">
+                    <style>
+                        table { border-collapse: collapse; width: 100%; margin-bottom: 20px; }
+                        th, td { border: 1px solid #ccc; padding: 5px; }
+                    </style>
+                </head>
+                <body>
+                <h2>Metraj Cetveli</h2>
+                ${detailTable}
+                <br><br>
+                ${priceList}
+                <br><br>
+                ${definitions}
+                </body></html>`;
+
+            const fileName = 'metraj_cetveli.xls';
+            const blob = new Blob([tableHTML], { type: 'application/vnd.ms-excel' });
+            const url = URL.createObjectURL(blob);
+
+            const downloadAnchorNode = document.createElement('a');
+            downloadAnchorNode.setAttribute("href", url);
+            downloadAnchorNode.setAttribute("download", fileName);
+            document.body.appendChild(downloadAnchorNode);
+            downloadAnchorNode.click();
+            downloadAnchorNode.remove();
+        }
+
+        // Birim Fiyat Tablosunu Oluştur
+        function renderPriceList() {
+            const tbody = document.getElementById('priceListBody');
+            tbody.innerHTML = '';
+
+            // Poz numarasına göre sırala
+            const sortedKeys = Object.keys(csbData).sort((a, b) => csbData[a].poz.localeCompare(csbData[b].poz));
+
+            sortedKeys.forEach(key => {
+                const item = csbData[key];
+                const row = document.createElement('tr');
+                row.className = 'hover:bg-gray-50 transition';
+                row.innerHTML = `
+                    <td class="px-4 py-2 font-medium text-gray-900 whitespace-nowrap">${item.poz}</td>
+                    <td class="px-4 py-2 text-gray-700">${item.tanim}</td>
+                    <td class="px-4 py-2 text-center text-gray-500">${item.birim}</td>
+                    <td class="px-4 py-2 text-right text-gray-700">${formatNumber(item.fiyat_2026)}</td>
+                    <td class="px-4 py-2 text-right font-bold text-blue-600">${formatNumber(item.fiyat_sozlesme)}</td>
+                `;
+                tbody.appendChild(row);
+            });
+        }
+
+        // Poz Tarifleri Tablosunu Oluştur
+        function renderDefinitionsTable() {
+            const tbody = document.getElementById('definitionsBody');
+            tbody.innerHTML = '';
+
+            const sortedKeys = Object.keys(csbData).sort((a, b) => csbData[a].poz.localeCompare(csbData[b].poz));
+
+            sortedKeys.forEach(key => {
+                const item = csbData[key];
+                let calcMethod = '';
+
+                if (item.type === 'length') {
+                    calcMethod = 'Metretül (m) cinsinden boy ölçülür.';
+                } else if (item.type === 'area') {
+                    calcMethod = 'Proje üzerinden net alan (m²) hesaplanır.';
+                } else if (item.type === 'area_thick') {
+                    calcMethod = item.density ? 'Hacim x Yoğunluk (Ton) olarak hesaplanır.' : 'Net hacim (m³) hesaplanır.';
+                }
+
+                const row = document.createElement('tr');
+                row.className = 'hover:bg-gray-50 transition border-b';
+                row.innerHTML = `
+            <td class="px-4 py-3 font-bold text-primary whitespace-nowrap align-top">${item.poz}</td>
+            <td class="px-4 py-3 align-top">
+                <div class="font-semibold text-gray-800">${item.tanim}</div>
+                <div class="text-xs text-gray-500 mt-1 leading-relaxed">${item.tarif || 'Tarif belirtilmemiş.'}</div>
+            </td>
+            <td class="px-4 py-3 text-center text-gray-600 align-top font-medium">${item.birim}</td>
+            <td class="px-4 py-3 text-gray-600 italic text-xs align-top bg-blue-50/30">${calcMethod}</td>
+        `;
+                tbody.appendChild(row);
+            });
+        }
+
+        // Sayfa yüklendiğinde input durumunu ayarla
+        toggleInputs();
+        loadFromLocal(); // Kayıtlı veriyi çek
+        renderPriceList(); // Fiyat listesini oluştur
+        renderDefinitionsTable(); // Tarif listesini oluştur
+    </script>
+</body>
