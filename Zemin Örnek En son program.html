@@ -1,0 +1,1769 @@
+<!DOCTYPE html>
+<html lang="tr">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Geoteknik Rapor - Bornova 280-4</title>
+    <style>
+        :root {
+            --primary-color: #2c3e50;
+            --secondary-color: #3498db;
+            --bg-color: #f4f7f6;
+        }
+
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            margin: 0;
+            padding: 20px;
+            background-color: var(--bg-color);
+            color: #333;
+        }
+
+        .container {
+            max-width: 900px;
+            margin: 0 auto;
+            background: white;
+            padding: 30px;
+            box-shadow: 0 4px 15px rgba(0,0,0,0.1);
+            border-radius: 8px;
+        }
+
+        h1, h2, h3 {
+            color: var(--primary-color);
+            border-bottom: 2px solid #eee;
+            padding-bottom: 10px;
+        }
+
+        /* Form Stilleri */
+        .form-section {
+            margin-bottom: 20px;
+            padding: 15px;
+            background-color: #f9f9f9;
+            border-radius: 5px;
+            border-left: 5px solid var(--secondary-color);
+        }
+
+        label {
+            display: block;
+            margin-bottom: 5px;
+            font-weight: bold;
+        }
+
+        input, select, textarea {
+            width: 100%;
+            padding: 10px;
+            margin-bottom: 15px;
+            border: 1px solid #ddd;
+            border-radius: 4px;
+            box-sizing: border-box;
+            font-size: 14px;
+        }
+
+        .btn {
+            background-color: var(--secondary-color);
+            color: white;
+            padding: 12px 20px;
+            border: none;
+            border-radius: 4px;
+            cursor: pointer;
+            font-size: 16px;
+            transition: background 0.3s;
+        }
+
+        .btn:hover {
+            background-color: #2980b9;
+        }
+
+        .btn-print {
+            background-color: #27ae60;
+            margin-top: 20px;
+            display: none; /* Başlangıçta gizli */
+        }
+
+        /* Rapor Çıktı Alanı (Başlangıçta gizli) */
+        #report-output {
+            display: none;
+            margin-top: 30px;
+            border-top: 4px solid var(--primary-color);
+        }
+
+        table {
+            width: 100%;
+            border-collapse: collapse;
+            margin-top: 15px;
+        }
+
+        table, th, td {
+            border: 1px solid #ccc;
+        }
+
+        th, td {
+            padding: 10px;
+            text-align: left;
+        }
+
+        th {
+            background-color: #eee;
+        }
+
+        /* Yazdırma Ayarları (Print CSS) */
+        @media print {
+            body {
+                background-color: white;
+                padding: 0;
+            }
+            .container {
+                box-shadow: none;
+                width: 100%;
+                max-width: 100%;
+                margin: 0;
+                padding: 0;
+            }
+            #input-form, .btn, .no-print {
+                display: none !important;
+            }
+            #report-output {
+                display: block !important;
+                border: none;
+            }
+            h1 {
+                font-size: 24px;
+                text-align: center;
+            }
+        }
+
+        /* Hesaplama Araçları Stilleri */
+        .calc-box {
+            background: #eef2f3;
+            padding: 15px;
+            border-radius: 4px;
+            margin-bottom: 20px;
+            border: 1px solid #cbd5e0;
+        }
+        .calc-box h4 {
+            margin-top: 0;
+            font-size: 15px;
+            color: var(--secondary-color);
+            border-bottom: 1px dashed #ccc;
+            padding-bottom: 5px;
+            margin-bottom: 10px;
+        }
+        .calc-row {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 10px;
+        }
+        .btn-small {
+            background-color: #7f8c8d;
+            color: white;
+            padding: 6px 12px;
+            border: none;
+            border-radius: 3px;
+            cursor: pointer;
+            font-size: 12px;
+            margin-top: 0;
+        }
+        .calc-box .btn-small {
+            margin-top: 10px;
+        }
+        .btn-small:hover {
+            background-color: #6c7a89;
+        }
+        .calc-result {
+            font-size: 14px;
+            font-weight: bold;
+            color: #27ae60;
+            margin-top: 10px;
+            padding: 5px;
+            background: rgba(255,255,255,0.5);
+            border-radius: 3px;
+        }
+    </style>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/localforage/1.10.0/localforage.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/2.16.105/pdf.min.js"></script>
+    <script>
+        if (typeof pdfjsLib !== 'undefined') {
+            pdfjsLib.GlobalWorkerOptions.workerSrc = `https://cdnjs.cloudflare.com/ajax/libs/pdf.js/2.16.105/pdf.worker.min.js`;
+        }
+    </script>
+</head>
+<body>
+
+<div class="container">
+    <div class="form-section" style="border-left-color: #e67e22;">
+        <h3>Proje Yönetimi</h3>
+        <div style="display: flex; gap: 10px; align-items: center; flex-wrap: wrap;">
+            <div style="flex-grow: 1; min-width: 200px;">
+                <label for="projectSelector">Mevcut Projeler</label>
+                <select id="projectSelector" onchange="loadSelectedProject()"></select>
+            </div>
+            <button class="btn-small" style="background-color: #27ae60;" onclick="addNewProject()">Yeni Proje</button>
+            <button class="btn-small" style="background-color: #16a085;" onclick="saveProject()">Projeyi Kaydet</button>
+            <button class="btn-small" style="background-color: #c0392b;" onclick="deleteSelectedProject()">Projeyi Sil</button>
+            <button class="btn-small" style="background-color: #8e44ad;" onclick="renameProject()">Düzenle</button>
+            <button class="btn-small" style="background-color: #3498db;" onclick="downloadBackup()">Yedekle</button>
+            <button class="btn-small" style="background-color: #f39c12; color: white;" onclick="triggerRestore()">Yedek Yükle</button>
+            <button class="btn-small" style="background-color: #34495e;" onclick="openParserModal()">PDF Veri Aktar</button>
+        </div>
+    </div>
+
+    <div id="input-form">
+        <h1>Zemin Etüt Veri Girişi</h1>
+        <p>Lütfen <strong id="activeProjectName">BORNOVA 280-4</strong> dosyasındaki verileri aşağıya giriniz.</p>
+
+        <div class="form-section">
+            <h3>Proje Bilgileri</h3>
+            <label>Proje Başlığı:</label>
+            <input type="text" id="projectTitle" value="BORNOVA 280-4 Geoteknik Raporu">
+            
+            <label>İl / İlçe / Mahalle:</label>
+            <input type="text" id="location" value="İzmir / Bornova / ...">
+
+            <label>Ada / Parsel:</label>
+            <input type="text" id="adaParsel" placeholder="Örn: 280 / 4">
+        </div>
+
+        <div class="form-section">
+            <h3>Zemin Parametreleri</h3>
+            
+            <div class="calc-box">
+                <h4>SPT'den Zemin Sınıfı Hesabı (Vs = 51.5 * N^0.516)</h4>
+                <input type="number" id="calc_n60" placeholder="SPT N60 Değeri Giriniz">
+                <button class="btn-small" onclick="calculateSoilClass()">Hesapla ve Seç</button>
+                <div id="res_soil" class="calc-result" style="display:none;"></div>
+            </div>
+
+            <label>Zemin Sınıfı (TBDY-2018):</label>
+            <select id="soilClass">
+                <option value="ZA">ZA - Sağlam Kaya</option>
+                <option value="ZB">ZB - Orta Sağlam Kaya</option>
+                <option value="ZC">ZC - Çok Sıkı Kum / Çakıl veya Çok Katı Kil</option>
+                <option value="ZD">ZD - Orta Sıkı Kum / Çakıl veya Katı Kil</option>
+                <option value="ZE">ZE - Gevşek Kum veya Yumuşak Kil</option>
+                <option value="ZF">ZF - Özel Çalışma Gerektiren Zeminler</option>
+            </select>
+
+            <label>Yatak Katsayısı (Kv - t/m³):</label>
+            <input type="number" id="kvValue" placeholder="Örn: 1200">
+
+            <label>Zemin Emniyet Gerilmesi (qa - t/m²):</label>
+            <input type="number" id="qaValue" placeholder="Örn: 15.5">
+
+            <label>Yeraltı Su Seviyesi (m):</label>
+            <input type="text" id="waterLevel" placeholder="Örn: -3.50m veya Rastlanmadı">
+
+            <hr style="margin: 20px 0; border: 0; border-top: 1px solid #eee;">
+            <h3>SPT Verileri</h3>
+            <input type="hidden" id="sptData">
+            <table id="sptTable" style="font-size: 13px;">
+                <thead>
+                    <tr>
+                        <th style="width: 80px;">Derinlik (m)</th>
+                        <th style="width: 80px;">N (Ham)</th>
+                        <th>Enerji Düz. (Ce)</th>
+                        <th>Overburden Düz. (Cn)</th>
+                        <th>N60</th>
+                        <th style="width: 50px;">Sil</th>
+                    </tr>
+                </thead>
+                <tbody></tbody>
+            </table>
+            <div style="margin-top: 10px;">
+                <button class="btn-small" onclick="addSptRow()">+ Satır Ekle</button>
+                <button class="btn-small" style="background-color: #2980b9;" onclick="calculateSptN60()">N60 Hesapla</button>
+                <div style="margin-top:5px; font-size:11px; color:#555;">
+                    <em>Formül:</em> N<sub>60</sub> = N<sub>ham</sub> &times; C<sub>e</sub> &times; C<sub>n</sub>
+                </div>
+            </div>
+            <hr style="margin: 20px 0; border: 0; border-top: 1px solid #eee;">
+            <h3>CPT Verileri (Varsa)</h3>
+            <input type="hidden" id="cptData">
+            <table id="cptTable" style="font-size: 13px;">
+                <thead>
+                    <tr>
+                        <th style="width: 80px;">Derinlik (m)</th>
+                        <th style="width: 80px;">qc (MPa)</th>
+                        <th style="width: 80px;">fs (kPa)</th>
+                        <th>Rf (%)</th>
+                        <th style="width: 50px;">Sil</th>
+                    </tr>
+                </thead>
+                <tbody></tbody>
+            </table>
+            <div style="margin-top: 10px;">
+                <button class="btn-small" onclick="addCptRow()">+ Satır Ekle</button>
+                <button class="btn-small" style="background-color: #2980b9;" onclick="calculateCptRf()">Rf Hesapla</button>
+            </div>
+            <hr style="margin: 20px 0; border: 0; border-top: 1px solid #eee;">
+            <h3>Yeraltı Suyu Verileri</h3>
+            <input type="hidden" id="yasData">
+            <table id="yasTable" style="font-size: 13px;">
+                <thead>
+                    <tr>
+                        <th>YAS Seviyesi (m)</th>
+                        <th>Ölçüm Tarihi</th>
+                        <th>Mevsim Bilgisi</th>
+                        <th style="width: 50px;">Sil</th>
+                    </tr>
+                </thead>
+                <tbody></tbody>
+            </table>
+            <div style="margin-top: 10px;">
+                <button class="btn-small" onclick="addYasRow()">+ Satır Ekle</button>
+            </div>
+            <hr style="margin: 20px 0; border: 0; border-top: 1px solid #eee;">
+            <h3>Fiziksel Özellikler</h3>
+            <input type="hidden" id="fizikselData">
+            <table id="fizikselTable" style="font-size: 13px;">
+                <thead>
+                    <tr>
+                        <th style="width: 70px;">Derinlik (m)</th>
+                        <th>Su Muht. w (%)</th>
+                        <th>Doğal γ (kN/m³)</th>
+                        <th>Kuru γd (kN/m³)</th>
+                        <th>Doygun γsat (kN/m³)</th>
+                        <th>Rölatif Sıkılık Dr (%)</th>
+                        <th style="width: 50px;">Sil</th>
+                    </tr>
+                </thead>
+                <tbody></tbody>
+            </table>
+            <div style="margin-top: 10px;">
+                <button class="btn-small" onclick="addFizikselRow()">+ Satır Ekle</button>
+            </div>
+            <hr style="margin: 20px 0; border: 0; border-top: 1px solid #eee;">
+            <h3>Dayanım Parametreleri</h3>
+            <input type="hidden" id="dayanimData">
+            <table id="dayanimTable" style="font-size: 13px;">
+                <thead>
+                    <tr>
+                        <th style="width: 70px;">Derinlik (m)</th>
+                        <th>Kohezyon c (kPa)</th>
+                        <th>Sürtünme &phi; (&deg;)</th>
+                        <th>Efektif c' (kPa)</th>
+                        <th>Efektif &phi;' (&deg;)</th>
+                        <th style="width: 50px;">Sil</th>
+                    </tr>
+                </thead>
+                <tbody></tbody>
+            </table>
+            <div style="margin-top: 10px;">
+                <button class="btn-small" onclick="addDayanimRow()">+ Satır Ekle</button>
+            </div>
+        </div>
+
+        <div class="form-section">
+            <h3>Sismik Parametreler</h3>
+            <label>Etkin Yer İvmesi (PGA - g):</label>
+            <input type="number" step="0.01" id="pgaValue" placeholder="Örn: 0.40">
+            
+            <label>Sıvılaşma Riski:</label>
+            <select id="liquefaction">
+                <option value="Yok">Yok</option>
+                <option value="Var">Var (Zemin İyileştirme Gerekli)</option>
+                <option value="Analiz Gerekli">Detaylı Analiz Gerekli</option>
+            </select>
+        </div>
+
+        <div class="form-section">
+            <h3>Analiz ve Hesaplamalar</h3>
+            
+            <div class="calc-box">
+                <h4>Taşıma Gücü Hesabı</h4>
+                <div style="display: flex; gap: 10px; margin-bottom: 10px;">
+                    <select id="calc_method" style="flex: 1; padding: 8px; border: 1px solid #ddd; border-radius: 4px;">
+                        <option value="Terzaghi">Terzaghi</option>
+                        <option value="Meyerhof">Meyerhof</option>
+                        <option value="Hansen">Hansen</option>
+                        <option value="Vesic">Vesic</option>
+                    </select>
+                    <select id="calc_foundation_type" style="flex: 1; padding: 8px; border: 1px solid #ddd; border-radius: 4px;">
+                        <option value="Radye">Radye Temel</option>
+                        <option value="Tekil">Tekil Temel</option>
+                        <option value="Surekli">Sürekli Temel</option>
+                    </select>
+                </div>
+                <div class="calc-row">
+                    <div>
+                        <label style="font-size: 12px; margin-bottom: 2px;">Kohezyon c (kPa)</label>
+                        <input type="number" id="calc_c" placeholder="Örn: 5">
+                    </div>
+                    <div>
+                        <label style="font-size: 12px; margin-bottom: 2px;">İçsel Sürtünme ϕ (°)</label>
+                        <input type="number" id="calc_phi" placeholder="Örn: 30">
+                    </div>
+                    <div>
+                        <label style="font-size: 12px; margin-bottom: 2px;">Birim Hacim γ (kN/m³)</label>
+                        <input type="number" id="calc_gamma" placeholder="Örn: 18">
+                    </div>
+                    <div>
+                        <label style="font-size: 12px; margin-bottom: 2px;">Temel Derinliği Df (m)</label>
+                        <input type="number" id="calc_df" placeholder="Örn: 1.5">
+                    </div>
+                    <div>
+                        <label style="font-size: 12px; margin-bottom: 2px;">Temel Genişliği B (m)</label>
+                        <input type="number" id="calc_b" placeholder="Örn: 2.0">
+                    </div>
+                    <div>
+                        <label style="font-size: 12px; margin-bottom: 2px;">Temel Uzunluğu L (m)</label>
+                        <input type="number" id="calc_l" placeholder="Örn: 3.0">
+                    </div>
+                </div>
+                <button class="btn-small" onclick="calculateBearing()">Hesapla ve Aktar</button>
+                <div id="res_bearing" class="calc-result" style="display:none;"></div>
+            </div>
+
+            <div class="calc-box">
+                <h4>Oturma Analizi (Konsolidasyon)</h4>
+                <div class="calc-row">
+                    <input type="number" id="calc_cc" placeholder="Sıkışma İndisi (Cc)">
+                    <input type="number" id="calc_e0" placeholder="Başlangıç Boşluk (e0)">
+                    <input type="number" id="calc_h" placeholder="Tabaka Kalınlığı H (m)">
+                    <input type="number" id="calc_s0" placeholder="Efektif Gerilme σ'0 (kPa)">
+                    <input type="number" id="calc_ds" placeholder="Gerilme Artışı Δσ (kPa)">
+                </div>
+                <button class="btn-small" onclick="calculateSettlement()">Hesapla</button>
+                <div id="res_settlement" class="calc-result" style="display:none;"></div>
+                <input type="hidden" id="settlementOutputValue">
+            </div>
+
+            <div class="calc-box">
+                <h4>Sıvılaşma Analizi (FS = CRR / CSR)</h4>
+                <div class="calc-row">
+                    <input type="number" id="calc_crr" placeholder="CRR (Zemin Direnci)">
+                    <input type="number" id="calc_csr" placeholder="CSR (Deprem Talebi)">
+                </div>
+                <button class="btn-small" onclick="calculateLiq()">Analiz Et</button>
+                <div id="res_liq" class="calc-result" style="display:none;"></div>
+            </div>
+        </div>
+
+        <div class="form-section">
+            <h3>Dosya Ekleri (PDF Rapor vb.)</h3>
+            <input type="file" id="fileInput" accept=".pdf" multiple onchange="handleFileSelect(this)" style="margin-bottom: 10px;">
+            <div id="attachedFilesList" style="border: 1px dashed #ccc; padding: 10px; background: #fff; min-height: 50px;">
+                <p style="font-style:italic; color:#777; margin:0;">Henüz dosya eklenmedi.</p>
+            </div>
+        </div>
+
+        <div class="form-section">
+            <h3>Sonuç ve Öneriler</h3>
+            <label>Rapor Sonucu:</label>
+            <textarea id="conclusion" rows="4">Yapılan sondaj ve laboratuvar çalışmaları neticesinde, belirtilen parselde yapılaşmaya uygun zemin koşulları belirlenmiştir. Temel tipi olarak radye temel önerilmektedir.</textarea>
+        </div>
+
+        <div class="form-section">
+            <h3>Parametre Kontrol Listesi</h3>
+            <div id="paramCheckList"></div>
+        </div>
+
+        <button class="btn" onclick="generateReport()">Raporu Oluştur</button>
+    </div>
+
+    <!-- Rapor Çıktısı -->
+    <div id="report-output">
+        <h1 style="text-align: center;">GEOTEKNİK DEĞERLENDİRME RAPORU</h1>
+        <p style="text-align: center; font-style: italic;" id="displayDate"></p>
+        
+        <h2>1. GENEL BİLGİLER</h2>
+        <table>
+            <tr>
+                <th width="30%">Proje Adı</th>
+                <td id="outProject"></td>
+            </tr>
+            <tr>
+                <th>Lokasyon</th>
+                <td id="outLocation"></td>
+            </tr>
+            <tr>
+                <th>Ada / Parsel</th>
+                <td id="outAdaParsel"></td>
+            </tr>
+        </table>
+
+        <h2>2. ZEMİN VE DEPREM PARAMETRELERİ</h2>
+        <table>
+            <tr>
+                <th width="30%">Zemin Sınıfı</th>
+                <td id="outSoilClass"></td>
+            </tr>
+            <tr>
+                <th>Zemin Emniyet Gerilmesi (qa)</th>
+                <td id="outQa"></td>
+            </tr>
+            <tr>
+                <th>Yatak Katsayısı (Kv)</th>
+                <td id="outKv"></td>
+            </tr>
+            <tr>
+                <th>Yeraltı Su Seviyesi</th>
+                <td id="outWater"></td>
+            </tr>
+            <tr>
+                <th>Tahmini Oturma (Sc)</th>
+                <td id="outSettlement"></td>
+            </tr>
+            <tr>
+                <th>Etkin Yer İvmesi (PGA)</th>
+                <td id="outPga"></td>
+            </tr>
+            <tr>
+                <th>Sıvılaşma Riski</th>
+                <td id="outLiquefaction"></td>
+            </tr>
+        </table>
+
+        <h2>3. SONUÇ VE ÖNERİLER</h2>
+        <div style="border: 1px solid #ccc; padding: 15px; background: #fff;">
+            <p id="outConclusion"></p>
+        </div>
+
+        <br><br>
+        <div style="display: flex; justify-content: space-between; margin-top: 50px;">
+            <div style="text-align: center;">
+                <p><strong>Raporu Hazırlayan</strong></p>
+                <br><br>
+                <p>.......................................</p>
+                <p>İnşaat / Jeoloji Mühendisi</p>
+            </div>
+            <div style="text-align: center;">
+                <p><strong>Onaylayan</strong></p>
+                <br><br>
+                <p>.......................................</p>
+                <p>Oda Sicil No: ...........</p>
+            </div>
+        </div>
+    </div>
+
+    <button class="btn btn-print" id="printBtn" onclick="window.print()">Yazdır / PDF Olarak Kaydet</button>
+    <button class="btn" id="editBtn" style="display:none; background-color: #7f8c8d; margin-top: 20px;" onclick="editReport()">Düzenlemeye Dön</button>
+
+    <!-- Yeni Proje Ekleme Modalı -->
+    <div id="newProjectModal" style="display:none; position: fixed; z-index: 1000; left: 0; top: 0; width: 100%; height: 100%; overflow: auto; background-color: rgba(0,0,0,0.4);">
+        <div style="background-color: #fefefe; margin: 15% auto; padding: 20px; border: 1px solid #888; width: 80%; max-width: 500px; border-radius: 8px; box-shadow: 0 4px 8px 0 rgba(0,0,0,0.2);">
+            <h3 style="margin-top:0; color: var(--primary-color); border-bottom: 2px solid #eee; padding-bottom: 10px;">Yeni Proje Oluştur</h3>
+            <div class="form-section" style="border: none; padding: 0; margin-top: 20px;">
+                <label for="newProjectTitle">Proje Başlığı:</label>
+                <input type="text" id="newProjectTitle" placeholder="Proje için benzersiz bir başlık girin">
+                
+                <label for="newProjectLocation">İl / İlçe / Mahalle:</label>
+                <input type="text" id="newProjectLocation" placeholder="Örn: İzmir / Bornova / ...">
+
+                <label for="newProjectAdaParsel">Ada / Parsel:</label>
+                <input type="text" id="newProjectAdaParsel" placeholder="Örn: 280 / 4">
+            </div>
+            <div style="text-align: right; margin-top: 20px;">
+                <button class="btn-small" style="background-color: #7f8c8d;" onclick="closeNewProjectModal()">İptal</button>
+                <button class="btn-small" style="background-color: #27ae60; margin-left: 5px;" onclick="saveNewProjectFromModal()">Projeyi Oluştur</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- PDF Veri Aktarma Modalı -->
+    <div id="parserModal" style="display:none; position: fixed; z-index: 2000; left: 0; top: 0; width: 100%; height: 100%; overflow: auto; background-color: rgba(0,0,0,0.5);">
+        <div style="background-color: #fefefe; margin: 5% auto; padding: 20px; border: 1px solid #888; width: 90%; max-width: 700px; border-radius: 8px; box-shadow: 0 4px 8px 0 rgba(0,0,0,0.2);">
+            <div style="display:flex; justify-content:space-between; align-items:center; border-bottom: 1px solid #eee; padding-bottom: 10px; margin-bottom: 15px;">
+                <h3 style="margin:0; color: var(--primary-color);">PDF Rapor Verisi Aktar</h3>
+                <span onclick="closeParserModal()" style="cursor:pointer; font-size:24px; font-weight:bold; color:#aaa;">&times;</span>
+            </div>
+            
+            <p style="font-size: 14px; color: #666; margin-bottom: 15px;">Zemin etüt raporu PDF dosyasını yükleyin. Sistem metni tarayarak uygun parametreleri (c, &phi;, &gamma;, N60 vb.) ilgili alanlara aktaracaktır.</p>
+            
+            <input type="file" id="pdfImportInput" accept=".pdf" style="margin-bottom: 15px; width: 100%; padding: 10px; border: 1px solid #ddd; border-radius: 4px;">
+            
+            <div id="modalPdfList" style="margin-bottom: 15px; max-height: 150px; overflow-y: auto;"></div>
+
+            <div id="parsingStatus" style="display:none; margin-bottom: 10px; font-weight:bold; color: #2980b9;">PDF Analiz ediliyor, lütfen bekleyin...</div>
+            
+            <textarea id="extractedText" rows="12" style="width: 100%; padding: 10px; border: 1px solid #ddd; border-radius: 4px; font-size: 12px; resize: vertical; font-family: monospace;" placeholder="PDF içeriği burada görünecek..."></textarea>
+            
+            <div style="text-align: right; margin-top: 15px;">
+                <button class="btn-small" style="background-color: #7f8c8d;" onclick="closeParserModal()">Kapat</button>
+                <button class="btn-small" style="background-color: #27ae60; margin-left: 5px;" onclick="processExtractedText()">Verileri Süz ve Aktar</button>
+            </div>
+        </div>
+    </div>
+
+    <input type="file" id="restoreInput" class="hidden" accept=".json" onchange="restoreBackup(this)">
+
+</div>
+
+<script>
+    function generateReport() {
+        // Verileri al
+        const project = document.getElementById('projectTitle').value;
+        const location = document.getElementById('location').value;
+        const adaParsel = document.getElementById('adaParsel').value;
+        const soilClass = document.getElementById('soilClass').options[document.getElementById('soilClass').selectedIndex].text;
+        const kv = document.getElementById('kvValue').value;
+        const qa = document.getElementById('qaValue').value;
+        const water = document.getElementById('waterLevel').value;
+        const settlement = document.getElementById('settlementOutputValue').value;
+        const pga = document.getElementById('pgaValue').value;
+        const liq = document.getElementById('liquefaction').value;
+        const conclusion = document.getElementById('conclusion').value;
+
+        // Tarih
+        const date = new Date();
+        document.getElementById('displayDate').innerText = date.toLocaleDateString('tr-TR');
+
+        // Verileri rapora yaz
+        document.getElementById('outProject').innerText = project;
+        document.getElementById('outLocation').innerText = location;
+        document.getElementById('outAdaParsel').innerText = adaParsel;
+        document.getElementById('outSoilClass').innerText = soilClass;
+        document.getElementById('outKv').innerText = kv ? kv + ' t/m³' : '-';
+        document.getElementById('outQa').innerText = qa ? qa + ' t/m²' : '-';
+        document.getElementById('outWater').innerText = water;
+        document.getElementById('outSettlement').innerText = settlement ? settlement : '-';
+        document.getElementById('outPga').innerText = pga ? pga + ' g' : '-';
+        document.getElementById('outLiquefaction').innerText = liq;
+        document.getElementById('outConclusion').innerText = conclusion;
+
+        // Görünümü değiştir
+        document.getElementById('input-form').style.display = 'none';
+        document.getElementById('report-output').style.display = 'block';
+        document.getElementById('printBtn').style.display = 'inline-block';
+        document.getElementById('editBtn').style.display = 'inline-block';
+    }
+
+    function editReport() {
+        document.getElementById('input-form').style.display = 'block';
+        document.getElementById('report-output').style.display = 'none';
+        document.getElementById('printBtn').style.display = 'none';
+        document.getElementById('editBtn').style.display = 'none';
+    }
+
+    // --- Hesaplama Fonksiyonları ---
+
+    function calculateSoilClass() {
+        let nInput = document.getElementById('calc_n60');
+        // SPT tablosundan ortalama N60 çek
+        if (!nInput.value && document.getElementById('sptData').value) {
+            try {
+                const data = JSON.parse(document.getElementById('sptData').value);
+                if (Array.isArray(data) && data.length > 0) {
+                    const validN = data.map(r => parseFloat(r.n60)).filter(n => n > 0);
+                    if (validN.length > 0) {
+                        const avg = validN.reduce((a,b)=>a+b,0) / validN.length;
+                        nInput.value = Math.round(avg);
+                    }
+                }
+            } catch(e){}
+        }
+        const N = parseFloat(nInput.value);
+        if (!N) { alert("Lütfen N60 değeri giriniz."); return; }
+        
+        // Formül: Vs = 51.5 * N^0.516 (SPT ye Göre.html dosyasından)
+        const Vs = 51.5 * Math.pow(N, 0.516);
+        
+        let soilClass = 'ZF';
+        if (Vs > 760) soilClass = 'ZA';
+        else if (Vs > 360) soilClass = 'ZB';
+        else if (Vs > 180) soilClass = 'ZC';
+        else soilClass = 'ZD'; // Basitleştirilmiş
+
+        const resDiv = document.getElementById('res_soil');
+        resDiv.style.display = 'block';
+        resDiv.innerHTML = `Vs: ${Vs.toFixed(1)} m/s <br> <strong>Deprem Zemin Sınıfı: ${soilClass}</strong>
+        <div style="margin-top:5px; font-size:11px; color:#555; border-top:1px solid #ccc; padding-top:3px;">
+            <em>Formül:</em> Vs = 51.5 * (N60)^0.516
+        </div>`;
+
+        // Dropdown'ı güncelle
+        const select = document.getElementById('soilClass');
+        for (let i = 0; i < select.options.length; i++) {
+            if (select.options[i].value.startsWith(soilClass)) {
+                select.selectedIndex = i;
+                break;
+            }
+        }
+    }
+
+    function calculateBearing() {
+        // --- Tablolardan Veri Çekme (Otomatik Doldurma) ---
+        const dfInput = document.getElementById('calc_df');
+        const DfVal = parseFloat(dfInput.value) || 0;
+        
+        const findClosest = (dataStr, targetDepth) => {
+            if (!dataStr) return null;
+            try {
+                const data = JSON.parse(dataStr);
+                if (!Array.isArray(data) || data.length === 0) return null;
+                return data.reduce((prev, curr) => 
+                    Math.abs((parseFloat(curr.depth)||0) - targetDepth) < Math.abs((parseFloat(prev.depth)||0) - targetDepth) ? curr : prev
+                );
+            } catch(e) { return null; }
+        };
+
+        const cInput = document.getElementById('calc_c');
+        const phiInput = document.getElementById('calc_phi');
+        if ((!cInput.value || !phiInput.value) && document.getElementById('dayanimData').value) {
+            const row = findClosest(document.getElementById('dayanimData').value, DfVal);
+            if (row) {
+                if (!cInput.value && row.c) cInput.value = row.c;
+                if (!phiInput.value && row.phi) phiInput.value = row.phi;
+            }
+        }
+
+        const gammaInput = document.getElementById('calc_gamma');
+        if (!gammaInput.value && document.getElementById('fizikselData').value) {
+            const row = findClosest(document.getElementById('fizikselData').value, DfVal);
+            if (row) {
+                if (row.gamma) gammaInput.value = row.gamma;
+                else if (row.gammad) gammaInput.value = row.gammad;
+                else if (row.gammasat) gammaInput.value = row.gammasat;
+            }
+        }
+        // -------------------------------------------------------
+
+        const selectedMethod = document.getElementById('calc_method').value;
+        const c = parseFloat(cInput.value) || 0;
+        const phi = parseFloat(phiInput.value) || 0;
+        const gamma = parseFloat(gammaInput.value) || 0;
+        const Df = parseFloat(dfInput.value) || 0;
+        const B = parseFloat(document.getElementById('calc_b').value) || 0;
+        const L = parseFloat(document.getElementById('calc_l').value) || B; // L girilmezse kare kabul et
+
+        const methods = ['Terzaghi', 'Meyerhof', 'Hansen', 'Vesic'];
+        let resultsHtml = '<table style="width:100%; font-size:12px; border-collapse: collapse; margin-top:10px;">';
+        resultsHtml += '<tr style="background:#eee; text-align:left;"><th>Yöntem</th><th>qu (Brüt)</th><th>qu (Net)</th><th>qem (Emniyet)</th></tr>';
+
+        let q_surcharge = gamma * Df;
+        let selectedQa = 0;
+
+        methods.forEach(method => {
+            const phiRad = phi * Math.PI / 180;
+            let Nc, Nq, Ng;
+            let sc = 1, sq = 1, sg = 1;
+            let dc = 1, dq = 1, dg = 1;
+
+            if (method === 'Terzaghi') {
+                if (phi === 0) { Nq = 1; Nc = 5.7; Ng = 0; }
+                else {
+                    Nq = Math.exp((0.75 * Math.PI - phiRad / 2) * 2 * Math.tan(phiRad)) / (2 * Math.pow(Math.cos((45 + phi / 2) * Math.PI / 180), 2));
+                    Nc = (Nq - 1) / Math.tan(phiRad);
+                    Ng = 2 * (Nq + 1) * Math.tan(phiRad); 
+                }
+                if (L >= B) { sc = 1 + 0.3 * (B/L); sg = 1 - 0.2 * (B/L); }
+            } 
+            else {
+                Nq = Math.exp(Math.PI * Math.tan(phiRad)) * Math.pow(Math.tan((45 + phi / 2) * Math.PI / 180), 2);
+                Nc = (Nq - 1) / Math.tan(phiRad);
+
+                if (method === 'Meyerhof') {
+                    Ng = (Nq - 1) * Math.tan(1.4 * phiRad);
+                    let Kp = Math.tan((45 + phi / 2) * Math.PI / 180) ** 2;
+                    sc = 1 + 0.2 * Kp * (B/L);
+                    sq = 1 + 0.1 * Kp * (B/L); sg = sq;
+                    dc = 1 + 0.2 * Math.sqrt(Kp) * (Df/B);
+                    dq = 1 + 0.1 * Math.sqrt(Kp) * (Df/B); dg = dq;
+                } 
+                else if (method === 'Hansen') {
+                    Ng = 1.5 * (Nq - 1) * Math.tan(phiRad);
+                    sc = 1 + (Nq/Nc) * (B/L);
+                    sq = 1 + (B/L) * Math.tan(phiRad);
+                    sg = 1 - 0.4 * (B/L);
+                    let k = Df/B <= 1 ? Df/B : Math.atan(Df/B);
+                    dc = 1 + 0.4 * k;
+                    dq = 1 + 2 * Math.tan(phiRad) * Math.pow(1 - Math.sin(phiRad), 2) * k;
+                    dg = 1;
+                }
+                else if (method === 'Vesic') {
+                    Ng = 2 * (Nq + 1) * Math.tan(phiRad);
+                    sc = 1 + (Nq/Nc) * (B/L);
+                    sq = 1 + (B/L) * Math.tan(phiRad);
+                    sg = 1 - 0.4 * (B/L);
+                    let k = Df/B <= 1 ? Df/B : Math.atan(Df/B);
+                    dc = 1 + 0.4 * k;
+                    dq = 1 + 2 * Math.tan(phiRad) * Math.pow(1 - Math.sin(phiRad), 2) * k;
+                    dg = 1;
+                }
+            }
+
+            // Brüt Nihai Taşıma Gücü (qu)
+            let qu = c * Nc * sc * dc + q_surcharge * Nq * sq * dq + 0.5 * gamma * B * Ng * sg * dg;
+            
+            // Net Nihai Taşıma Gücü (qu_net = qu - gamma*Df)
+            let qu_net = qu - q_surcharge;
+
+            // Zemin Emniyet Gerilmesi (qa = qu_net / FS + gamma*Df) -> FS = 3 kabulü ile
+            let qa_kPa = (qu_net / 3) + q_surcharge;
+
+            if (method === selectedMethod) {
+                selectedQa = qa_kPa;
+            }
+
+            const isSelected = method === selectedMethod ? 'font-weight:bold; background:#e8f6f3;' : '';
+            resultsHtml += `<tr style="${isSelected}">
+                <td style="padding:4px; border:1px solid #ccc;">${method}</td>
+                <td style="padding:4px; border:1px solid #ccc;">${qu.toFixed(1)}</td>
+                <td style="padding:4px; border:1px solid #ccc;">${qu_net.toFixed(1)}</td>
+                <td style="padding:4px; border:1px solid #ccc;">${qa_kPa.toFixed(1)}</td>
+            </tr>`;
+        });
+
+        resultsHtml += '</table>';
+        resultsHtml += `
+        <div style="margin-top:10px; font-size:11px; color:#555; border-top:1px solid #ccc; padding-top:5px;">
+            <strong>Kullanılan Formüller:</strong><br>
+            qu (Brüt) = c·Nc·sc·dc + q·Nq·sq·dq + 0.5·γ·B·Nγ·sγ·dγ <br>
+            qu (Net) = qu - γ·Df <br>
+            qem = (qu(Net) / 3.0) + γ·Df
+        </div>`;
+
+        const resDiv = document.getElementById('res_bearing');
+        resDiv.style.display = 'block';
+        resDiv.innerHTML = resultsHtml;
+
+        let qa_tm2 = selectedQa / 9.81;
+        document.getElementById('qaValue').value = qa_tm2.toFixed(2);
+    }
+
+    function calculateSettlement() {
+        const Cc = parseFloat(document.getElementById('calc_cc').value) || 0;
+        const e0 = parseFloat(document.getElementById('calc_e0').value) || 0;
+        const H = parseFloat(document.getElementById('calc_h').value) || 0;
+        const s0 = parseFloat(document.getElementById('calc_s0').value) || 0;
+        const ds = parseFloat(document.getElementById('calc_ds').value) || 0;
+
+        if (s0 === 0) { alert("Başlangıç gerilmesi (σ'0) 0 olamaz."); return; }
+
+        const Sc = (Cc / (1 + e0)) * H * Math.log10((s0 + ds) / s0);
+        const Sc_cm = Sc * 100;
+
+        // Farklı Oturma Tahmini (Genellikle toplam oturmanın %50-75'i mertebesindedir)
+        const diffSettlement = Sc * 0.5;
+        const diffSettlement_cm = diffSettlement * 100;
+
+        const resDiv = document.getElementById('res_settlement');
+        resDiv.style.display = 'block';
+        resDiv.innerHTML = `<strong>Toplam Oturma:</strong> ${Sc.toFixed(3)} m (${Sc_cm.toFixed(1)} cm)<br>` +
+                           `<strong>Tahmini Farklı Oturma:</strong> ~${diffSettlement.toFixed(3)} m (${diffSettlement_cm.toFixed(1)} cm)` +
+                           `<div style="margin-top:5px; font-size:11px; color:#555; border-top:1px solid #ccc; padding-top:3px;">
+                                <em>Formül:</em> Sc = (Cc / (1+e0)) * H * log10((σ'0 + Δσ) / σ'0)
+                            </div>`;
+        document.getElementById('settlementOutputValue').value = `${Sc.toFixed(3)} m (${Sc_cm.toFixed(1)} cm)`;
+    }
+
+    function calculateLiq() {
+        const crr = parseFloat(document.getElementById('calc_crr').value);
+        const csr = parseFloat(document.getElementById('calc_csr').value);
+        
+        if (!crr || !csr) { alert("Lütfen CRR ve CSR değerlerini giriniz."); return; }
+
+        const FS = crr / csr;
+        const risk = FS < 1.1 ? "Var" : "Yok";
+        
+        const resDiv = document.getElementById('res_liq');
+        resDiv.style.display = 'block';
+        resDiv.innerHTML = `FS: ${FS.toFixed(2)} <br> Risk: ${risk}` +
+                           `<div style="margin-top:5px; font-size:11px; color:#555; border-top:1px solid #ccc; padding-top:3px;">
+                                <em>Formül:</em> FS = CRR / CSR
+                            </div>`;
+        
+        const select = document.getElementById('liquefaction');
+        select.value = risk === "Var" ? "Var" : "Yok";
+    }
+
+    // --- Project Management ---
+    const STORAGE_KEY = 'geoteknikProjeVerileri';
+    let currentProjectFiles = [];
+
+    function handleFileSelect(input) {
+        const files = input.files;
+        if (!files.length) return;
+
+        Array.from(files).forEach(file => {
+            const reader = new FileReader();
+            reader.onload = function(e) {
+                currentProjectFiles.push({
+                    name: file.name,
+                    type: file.type,
+                    data: e.target.result // Base64 string olarak saklanır
+                });
+                renderFiles();
+                autoSave(); // Dosya eklendiğinde otomatik kaydet (Async)
+            };
+            reader.readAsDataURL(file);
+        });
+        input.value = ''; // Inputu temizle
+    }
+
+    function renderFiles() {
+        const container = document.getElementById('attachedFilesList');
+        container.innerHTML = '';
+        
+        if (currentProjectFiles.length === 0) {
+            container.innerHTML = '<p style="font-style:italic; color:#777; margin:0;">Henüz dosya eklenmedi.</p>';
+            return;
+        }
+
+        currentProjectFiles.forEach((file, index) => {
+            const div = document.createElement('div');
+            div.style.cssText = 'display: flex; justify-content: space-between; align-items: center; background: #f9f9f9; padding: 8px; margin-bottom: 5px; border: 1px solid #eee; border-radius: 4px;';
+            
+            const link = document.createElement('a');
+            link.href = file.data;
+            link.download = file.name;
+            link.innerHTML = `<span style="margin-right:5px;">📄</span> ${file.name}`;
+            link.style.cssText = 'color: #2980b9; text-decoration: none; font-size: 12px;';
+            
+            const delBtn = document.createElement('button');
+            delBtn.textContent = 'Sil';
+            delBtn.className = 'btn-small';
+            delBtn.style.cssText = 'background-color: #e74c3c; margin-left: 10px; padding: 4px 8px; font-size: 11px;';
+            delBtn.onclick = function() { 
+                if(confirm('Dosyayı silmek istediğinize emin misiniz?')) {
+                    currentProjectFiles.splice(index, 1);
+                    renderFiles();
+                    autoSave(); // Async
+                }
+            };
+            
+            div.appendChild(link);
+            div.appendChild(delBtn);
+            container.appendChild(div);
+        });
+    }
+
+    async function getProjectData() {
+        try {
+            const data = await localforage.getItem(STORAGE_KEY);
+            return data || { projects: {}, lastSelected: null };
+        } catch (e) {
+            console.error("Veri okuma hatası:", e);
+            return { projects: {}, lastSelected: null };
+        }
+    }
+
+    async function saveAllProjects(data) {
+        try {
+            await localforage.setItem(STORAGE_KEY, data);
+        } catch (e) {
+            console.error("Kaydetme hatası:", e);
+            alert("Kaydetme sırasında bir hata oluştu: " + e.message);
+        }
+    }
+
+    function populateProjectSelector(projects, selectedProject) {
+        const selector = document.getElementById('projectSelector');
+        selector.innerHTML = '';
+        Object.keys(projects).sort().forEach(projectName => {
+            const option = document.createElement('option');
+            option.value = projectName;
+            option.textContent = projectName;
+            if (projectName === selectedProject) {
+                option.selected = true;
+            }
+            selector.appendChild(option);
+        });
+    }
+
+    async function loadProject(projectName) {
+        const allData = await getProjectData();
+        const projectInputs = allData.projects[projectName];
+
+        const activeProjectLabel = document.getElementById('activeProjectName');
+        if (activeProjectLabel) {
+            activeProjectLabel.textContent = projectName || "Seçili Proje Yok";
+        }
+        
+        // Önce formu temizle
+        document.querySelectorAll('#input-form input, #input-form select, #input-form textarea').forEach(el => {
+            if (el.id && el.id !== 'projectSelector') {
+                 if (el.tagName === 'SELECT') el.selectedIndex = 0;
+                 else if (el.type !== 'button') el.value = '';
+            }
+        });
+        
+        currentProjectFiles = []; // Dosya listesini sıfırla
+        renderFiles();
+
+        if (projectInputs) {
+            Object.keys(projectInputs).forEach(key => {
+                const el = document.getElementById(key);
+                if (el) el.value = projectInputs[key];
+            });
+            
+            if (projectInputs.files) {
+                currentProjectFiles = projectInputs.files;
+                renderFiles();
+            }
+
+            // SPT Tablosunu Yükle
+            renderSptTableFromHidden();
+
+            // CPT Tablosunu Yükle
+            renderCptTableFromHidden();
+
+            // YAS Tablosunu Yükle
+            renderYasTableFromHidden();
+
+            // Fiziksel Özellikler Tablosunu Yükle
+            renderFizikselTableFromHidden();
+
+            // Dayanım Parametreleri Tablosunu Yükle
+            renderDayanimTableFromHidden();
+        }
+    }
+    
+    function updateParamCheckList() {
+        const params = [
+            { id: 'soilClass', name: 'Yerel Zemin Sınıfı (TBDY-2018)', symbol: 'Sınıf' },
+            { id: 'calc_n60', name: 'SPT N60 Değeri', symbol: 'N60' },
+            { id: 'calc_c', name: 'Kohezyon', symbol: 'c (kPa)' },
+            { id: 'calc_phi', name: 'İçsel Sürtünme Açısı', symbol: 'ϕ (°)' },
+            { id: 'calc_gamma', name: 'Birim Hacim Ağırlık', symbol: 'γ (kN/m³)' },
+            { id: 'calc_df', name: 'Temel Derinliği', symbol: 'Df (m)' },
+            { id: 'calc_b', name: 'Temel Genişliği', symbol: 'B (m)' },
+            { id: 'calc_l', name: 'Temel Uzunluğu', symbol: 'L (m)' },
+            { id: 'waterLevel', name: 'Yeraltı Su Seviyesi', symbol: 'YASS (m)' },
+            { id: 'kvValue', name: 'Yatak Katsayısı', symbol: 'Kv (t/m³)' },
+            { id: 'qaValue', name: 'Zemin Emniyet Gerilmesi', symbol: 'qa (t/m²)' },
+            { id: 'pgaValue', name: 'Etkin Yer İvmesi', symbol: 'PGA (g)' },
+            { id: 'calc_cc', name: 'Sıkışma İndisi', symbol: 'Cc' },
+            { id: 'calc_e0', name: 'Başlangıç Boşluk Oranı', symbol: 'e0' },
+            { id: 'calc_h', name: 'Tabaka Kalınlığı', symbol: 'H (m)' },
+            { id: 'calc_s0', name: 'Efektif Gerilme', symbol: "σ'0 (kPa)" },
+            { id: 'calc_ds', name: 'Gerilme Artışı', symbol: 'Δσ (kPa)' },
+            { id: 'calc_crr', name: 'Çevrimsel Direnç Oranı', symbol: 'CRR' },
+            { id: 'calc_csr', name: 'Çevrimsel Gerilme Oranı', symbol: 'CSR' },
+            { id: 'liquefaction', name: 'Sıvılaşma Riski', symbol: 'Durum' }
+        ];
+
+        let html = '<table style="width:100%; font-size:13px; border-collapse:collapse;">';
+        html += '<tr style="background:#eee; text-align:left;"><th style="padding:5px; border:1px solid #ccc;">Parametre</th><th style="padding:5px; border:1px solid #ccc;">Simge</th><th style="padding:5px; border:1px solid #ccc;">Durum / Değer</th></tr>';
+
+        params.forEach(p => {
+            const el = document.getElementById(p.id);
+            const val = el ? el.value : '';
+            const isFilled = val !== '' && val !== null;
+            
+            const statusStyle = isFilled ? 'color:green; font-weight:bold;' : 'color:red; font-weight:bold;';
+            const statusText = isFilled ? val : 'Girilmedi';
+
+            html += `<tr>
+                <td style="padding:5px; border:1px solid #ccc;">${p.name}</td>
+                <td style="padding:5px; border:1px solid #ccc;">${p.symbol}</td>
+                <td style="padding:5px; border:1px solid #ccc; ${statusStyle}">${statusText}</td>
+            </tr>`;
+        });
+        html += '</table>';
+
+        const container = document.getElementById('paramCheckList');
+        if(container) container.innerHTML = html;
+    }
+
+    async function loadSelectedProject() {
+        const selector = document.getElementById('projectSelector');
+        const projectName = selector.value;
+        if (projectName) {
+            await loadProject(projectName);
+            const allData = await getProjectData();
+            allData.lastSelected = projectName;
+            await saveAllProjects(allData);
+        }
+    }
+
+    async function saveProject() {
+        const selector = document.getElementById('projectSelector');
+        const projectName = selector.value;
+        if (!projectName) {
+            alert("Lütfen önce bir proje seçin veya yeni bir proje oluşturun.");
+            return;
+        }
+
+        const allData = await getProjectData();
+        const inputs = {};
+        document.querySelectorAll('#input-form input, #input-form select, #input-form textarea').forEach(el => {
+            if (el.id && el.id !== 'projectSelector') {
+                inputs[el.id] = el.value;
+            }
+        });
+
+        inputs.files = currentProjectFiles; // Dosyaları da kaydet
+        allData.projects[projectName] = inputs;
+        allData.lastSelected = projectName;
+        await saveAllProjects(allData);
+        alert(`'${projectName}' projesi kaydedildi.`);
+    }
+
+    function addNewProject() {
+        // Modal'ı açmadan önce içindeki inputları temizle
+        document.getElementById('newProjectTitle').value = '';
+        document.getElementById('newProjectLocation').value = '';
+        document.getElementById('newProjectAdaParsel').value = '';
+        // Modal'ı göster
+        document.getElementById('newProjectModal').style.display = 'block';
+    }
+
+    function closeNewProjectModal() {
+        document.getElementById('newProjectModal').style.display = 'none';
+    }
+
+    async function saveNewProjectFromModal() {
+        const projectName = document.getElementById('newProjectTitle').value;
+        const location = document.getElementById('newProjectLocation').value;
+        const adaParsel = document.getElementById('newProjectAdaParsel').value;
+
+        if (!projectName || projectName.trim() === '') {
+            alert("Proje Başlığı boş bırakılamaz.");
+            return;
+        }
+
+        const finalProjectName = projectName.trim();
+        const allData = await getProjectData();
+        if (allData.projects[finalProjectName]) {
+            alert("Bu isimde bir proje zaten mevcut! Lütfen farklı bir başlık kullanın.");
+            return;
+        }
+
+        // Yeni proje nesnesini oluştur
+        allData.projects[finalProjectName] = {
+            projectTitle: finalProjectName,
+            location: location,
+            adaParsel: adaParsel,
+            files: []
+        };
+        allData.lastSelected = finalProjectName;
+        await saveAllProjects(allData);
+        
+        populateProjectSelector(allData.projects, finalProjectName);
+        await loadProject(finalProjectName); // Yeni proje verilerini forma yükle
+        
+        closeNewProjectModal();
+    }
+
+    async function deleteSelectedProject() {
+        const selector = document.getElementById('projectSelector');
+        const projectName = selector.value;
+        if (!projectName) {
+            alert("Silinecek proje seçilmedi.");
+            return;
+        }
+
+        if (confirm(`'${projectName}' projesini silmek istediğinizden emin misiniz? Bu işlem geri alınamaz.`)) {
+            const allData = await getProjectData();
+            delete allData.projects[projectName];
+            // Silme sonrası herhangi bir projeyi otomatik seçme
+            allData.lastSelected = null;
+            
+            const remainingProjects = Object.keys(allData.projects);
+            allData.lastSelected = remainingProjects.length > 0 ? remainingProjects[0] : null;
+            
+            await saveAllProjects(allData);
+            populateProjectSelector(allData.projects, allData.lastSelected);
+            await loadProject(allData.lastSelected);
+        }
+    }
+
+    async function renameProject() {
+        const selector = document.getElementById('projectSelector');
+        const oldName = selector.value;
+        if (!oldName) {
+            alert("Lütfen düzenlenecek bir proje seçin.");
+            return;
+        }
+
+        const newName = prompt("Proje için yeni adı giriniz:", oldName);
+
+        if (!newName || newName.trim() === '' || newName.trim() === oldName) {
+            return; // Kullanıcı iptal etti veya aynı/boş isim girdi.
+        }
+
+        const finalNewName = newName.trim();
+        const allData = await getProjectData();
+        if (allData.projects[finalNewName]) {
+            alert("Bu isimde bir proje zaten mevcut! Lütfen farklı bir isim seçin.");
+            return;
+        }
+
+        if (confirm(`'${oldName}' projesinin adını '${finalNewName}' olarak değiştirmek istediğinizden emin misiniz?`)) {
+            allData.projects[finalNewName] = allData.projects[oldName];
+            delete allData.projects[oldName];
+            allData.lastSelected = finalNewName;
+            await saveAllProjects(allData);
+            populateProjectSelector(allData.projects, finalNewName);
+            document.getElementById('projectTitle').value = finalNewName;
+            
+            const activeProjectLabel = document.getElementById('activeProjectName');
+            if (activeProjectLabel) {
+                activeProjectLabel.textContent = finalNewName;
+            }
+        }
+    }
+
+    async function autoSave() {
+        const selector = document.getElementById('projectSelector');
+        const projectName = selector.value;
+        if (!projectName) return;
+
+        const allData = await getProjectData();
+        const inputs = allData.projects[projectName] || {};
+        
+        document.querySelectorAll('#input-form input, #input-form select, #input-form textarea').forEach(el => {
+            if (el.id && el.id !== 'projectSelector') {
+                inputs[el.id] = el.value;
+            }
+        });
+
+        inputs.files = currentProjectFiles; // Dosyaları da kaydet
+        allData.projects[projectName] = inputs;
+        allData.lastSelected = projectName;
+        await saveAllProjects(allData);
+    }
+
+    async function initializeApp() {
+        let allData = await getProjectData();
+        
+        // LocalStorage'dan veri taşıma (Eski verileri korumak için)
+        if (Object.keys(allData.projects).length === 0) {
+            const lsData = localStorage.getItem(STORAGE_KEY);
+            if (lsData) {
+                try {
+                    const parsed = JSON.parse(lsData);
+                    if (parsed && parsed.projects) {
+                        allData = parsed;
+                        await saveAllProjects(allData);
+                        console.log("Veriler localStorage'dan IndexedDB'ye taşındı.");
+                    }
+                } catch(e) {}
+            }
+        }
+
+        if (Object.keys(allData.projects).length === 0) {
+            // İlk çalıştırma, varsayılan bir proje oluştur
+            const defaultProjectName = "BORNOVA 280-4";
+            allData.projects[defaultProjectName] = {};
+            
+            // Formdaki mevcut verileri bu varsayılan projeye kaydet
+            document.querySelectorAll('#input-form input, #input-form select, #input-form textarea').forEach(el => {
+                if (el.id && el.id !== 'projectSelector') {
+                    allData.projects[defaultProjectName][el.id] = el.value;
+                }
+            });
+            allData.lastSelected = defaultProjectName; // Varsayılan projeyi seçili yap
+            await saveAllProjects(allData);
+        }
+        
+        const lastSelected = allData.lastSelected;
+        populateProjectSelector(allData.projects, lastSelected);
+        await loadProject(lastSelected);
+        updateParamCheckList(); // İlk yüklemede listeyi oluştur
+
+        // Otomatik kaydetme dinleyicileri
+        document.querySelectorAll('#input-form input, #input-form select, #input-form textarea').forEach(el => {
+            if (el.id && el.id !== 'projectSelector') {
+                el.addEventListener('input', autoSave);
+                el.addEventListener('change', autoSave);
+                el.addEventListener('input', updateParamCheckList); // Değişiklikte listeyi güncelle
+                el.addEventListener('change', updateParamCheckList);
+            }
+        });
+    }
+
+    // Sayfa açıldığında uygulamayı başlat
+    initializeApp();
+
+    // --- Yedekleme ve Geri Yükleme Fonksiyonları ---
+
+    async function downloadBackup() {
+        const allData = await getProjectData();
+        if (Object.keys(allData.projects).length === 0) {
+            alert("Yedeklenecek proje verisi bulunmuyor.");
+            return;
+        }
+        const dataStr = "data:text/json;charset=utf-8," + encodeURIComponent(JSON.stringify(allData, null, 2));
+        
+        const now = new Date();
+        const dateStr = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}-${String(now.getDate()).padStart(2, '0')}_${String(now.getHours()).padStart(2, '0')}-${String(now.getMinutes()).padStart(2, '0')}`;
+        
+        const downloadAnchorNode = document.createElement('a');
+        downloadAnchorNode.setAttribute("href", dataStr);
+        downloadAnchorNode.setAttribute("download", `Zemin_Etud_Programi_${dateStr}.json`);
+        document.body.appendChild(downloadAnchorNode);
+        downloadAnchorNode.click();
+        downloadAnchorNode.remove();
+    }
+
+    function triggerRestore() {
+        document.getElementById('restoreInput').click();
+    }
+
+    function restoreBackup(input) {
+        const file = input.files[0];
+        if (!file) return;
+
+        if (!confirm("Mevcut tüm projeler yedek dosyasındaki verilerle değiştirilecektir. Bu işlem geri alınamaz. Devam etmek istiyor musunuz?")) {
+            input.value = ''; // Reset the input
+            return;
+        }
+
+        const reader = new FileReader();
+        reader.onload = async function(e) {
+            try {
+                const data = JSON.parse(e.target.result);
+                if (data && typeof data.projects === 'object' && data.hasOwnProperty('lastSelected')) {
+                    await saveAllProjects(data);
+                    await initializeApp(); // Uygulamayı yeni verilerle yeniden başlat
+                    alert('Yedek başarıyla yüklendi.');
+                } else {
+                    alert('Hata: Yedek dosyası geçerli bir formatta değil.');
+                }
+            } catch (err) {
+                alert('Yedek dosyası okunurken bir hata oluştu: ' + err);
+            }
+        };
+        reader.readAsText(file);
+        input.value = ''; // Aynı dosyayı tekrar yükleyebilmek için sıfırla
+    }
+
+    // --- PDF Parser Functions ---
+    function openParserModal() {
+        document.getElementById('parserModal').style.display = 'block';
+        document.getElementById('extractedText').value = '';
+        document.getElementById('pdfImportInput').value = '';
+        document.getElementById('parsingStatus').style.display = 'none';
+        renderModalPdfList();
+    }
+
+    function closeParserModal() {
+        document.getElementById('parserModal').style.display = 'none';
+    }
+
+    document.getElementById('pdfImportInput').addEventListener('change', async function(e) {
+        const file = e.target.files[0];
+        if (!file) return;
+        
+        if (file.type !== 'application/pdf') {
+            alert('Lütfen geçerli bir PDF dosyası seçin.');
+            return;
+        }
+
+        // PDF dosyasını projenin ekli dosyalarına kaydet
+        const reader = new FileReader();
+        reader.onload = function(ev) {
+            currentProjectFiles.push({
+                name: file.name,
+                type: file.type,
+                data: ev.target.result
+            });
+            renderFiles();
+            autoSave();
+            renderModalPdfList();
+        };
+        reader.readAsDataURL(file);
+
+        document.getElementById('parsingStatus').style.display = 'block';
+        
+        try {
+            const arrayBuffer = await file.arrayBuffer();
+            const pdf = await pdfjsLib.getDocument({ data: arrayBuffer }).promise;
+            let fullText = '';
+            
+            for (let i = 1; i <= pdf.numPages; i++) {
+                const page = await pdf.getPage(i);
+                const textContent = await page.getTextContent();
+                const pageText = textContent.items.map(item => item.str).join(' ');
+                fullText += pageText + '\n\n';
+            }
+            
+            document.getElementById('extractedText').value = fullText;
+            document.getElementById('parsingStatus').style.display = 'none';
+        } catch (error) {
+            console.error(error);
+            alert("PDF okuma hatası: " + error.message);
+            document.getElementById('parsingStatus').style.display = 'none';
+        }
+    });
+
+    function renderModalPdfList() {
+        const container = document.getElementById('modalPdfList');
+        if (!container) return;
+        container.innerHTML = '';
+        
+        const pdfs = currentProjectFiles.map((f, i) => ({...f, index: i})).filter(f => f.type === 'application/pdf' || f.name.toLowerCase().endsWith('.pdf'));
+        
+        if (pdfs.length === 0) {
+            return; 
+        }
+        
+        container.innerHTML = '<h4 style="margin: 5px 0 10px 0; color: #555; font-size: 0.95em; border-bottom: 1px solid #eee; padding-bottom: 5px;">Yüklü PDF Dosyaları</h4>';
+        
+        pdfs.forEach(pdf => {
+            const div = document.createElement('div');
+            div.style.cssText = 'display: flex; justify-content: space-between; align-items: center; background: #f8f9fa; padding: 8px; margin-bottom: 5px; border: 1px solid #e9ecef; border-radius: 4px; font-size: 0.9em;';
+            div.innerHTML = `
+                <span style="overflow: hidden; text-overflow: ellipsis; white-space: nowrap; max-width: 70%;" title="${pdf.name}">
+                    <i class="fas fa-file-pdf" style="color: #e74c3c; margin-right: 6px;"></i>${pdf.name}
+                </span>
+                <button onclick="parseAttachedPdf(${pdf.index})" style="background-color: #27ae60; color: white; border: none; padding: 5px 10px; border-radius: 3px; cursor: pointer; font-size: 0.85em; display: flex; align-items: center;">
+                    <i class="fas fa-magic" style="margin-right: 5px;"></i> Süz
+                </button>
+            `;
+            container.appendChild(div);
+        });
+    }
+
+    async function parseAttachedPdf(index) {
+        const file = currentProjectFiles[index];
+        if (!file || !file.data) return;
+
+        document.getElementById('parsingStatus').style.display = 'block';
+        document.getElementById('parsingStatus').innerText = 'Seçilen PDF Analiz Ediliyor...';
+
+        try {
+            const base64 = file.data.split(',')[1];
+            const binaryString = window.atob(base64);
+            const len = binaryString.length;
+            const bytes = new Uint8Array(len);
+            for (let i = 0; i < len; i++) {
+                bytes[i] = binaryString.charCodeAt(i);
+            }
+
+            const pdf = await pdfjsLib.getDocument({ data: bytes }).promise;
+            let fullText = '';
+            
+            for (let i = 1; i <= pdf.numPages; i++) {
+                const page = await pdf.getPage(i);
+                const textContent = await page.getTextContent();
+                const pageText = textContent.items.map(item => item.str).join(' ');
+                fullText += pageText + '\n\n';
+            }
+            
+            document.getElementById('extractedText').value = fullText;
+            document.getElementById('parsingStatus').style.display = 'none';
+        } catch (error) {
+            console.error(error);
+            alert("PDF okuma hatası: " + error.message);
+            document.getElementById('parsingStatus').style.display = 'none';
+        }
+    }
+
+    function processExtractedText() {
+        const text = document.getElementById('extractedText').value;
+        if (!text) {
+            alert("İşlenecek metin bulunamadı.");
+            return;
+        }
+
+        const patterns = {
+            calc_c: /(?:kohezyon|cohesion|c')\s*(?:=|:)?\s*(\d+[.,]?\d*)/i,
+            calc_phi: /(?:sürtünme|friction|phi|ϕ)\s*(?:açısı)?\s*(?:=|:)?\s*(\d+[.,]?\d*)/i,
+            calc_gamma: /(?:birim\s*hacim|unit\s*weight|gamma|γn)\s*(?:=|:)?\s*(\d+[.,]?\d*)/i,
+            calc_n60: /(?:spt|n60)\s*(?:değeri)?\s*(?:=|:)?\s*(\d+)/i,
+            pgaValue: /(?:pga|etkin\s*yer\s*ivmesi|a0)\s*(?:=|:)?\s*(\d+[.,]?\d*)/i,
+            waterLevel: /(?:yeraltı\s*su|yass|su\s*seviyesi)\s*(?:=|:)?\s*(\d+[.,]?\d*)/i,
+            kvValue: /(?:yatak\s*katsayısı|kv)\s*(?:=|:)?\s*(\d+[.,]?\d*)/i,
+            qaValue: /(?:zemin\s*emniyet|qa|emniyet\s*gerilmesi)\s*(?:=|:)?\s*(\d+[.,]?\d*)/i,
+            projectTitle: /(?:proje\s*adı|proje\s*başlığı)\s*[:]\s*(.*)/i,
+            adaParsel: /(?:ada\s*\/\s*parsel)\s*[:]\s*(.*)/i
+        };
+
+        let count = 0;
+        for (const [id, regex] of Object.entries(patterns)) {
+            const val = text.match(regex);
+            if (val && val[1]) {
+                const el = document.getElementById(id);
+                if (el) { 
+                    el.value = val[1].trim().replace(',', '.'); 
+                    count++; 
+                }
+            }
+        }
+
+        alert(`${count} adet veri bulundu ve ilgili alanlara aktarıldı.`);
+        closeParserModal();
+        autoSave(); // Değişiklikleri kaydet
+    }
+
+    // --- SPT Table Functions ---
+    function addSptRow(data = {}, skipUpdate = false) {
+        const tbody = document.querySelector('#sptTable tbody');
+        const tr = document.createElement('tr');
+        
+        tr.innerHTML = `
+            <td><input type="number" step="0.5" class="spt-depth" value="${data.depth || ''}" oninput="updateSptJson()" style="margin:0; width:100%;"></td>
+            <td><input type="number" class="spt-n" value="${data.n || ''}" oninput="updateSptJson()" style="margin:0; width:100%;"></td>
+            <td><input type="number" step="0.01" class="spt-ce" value="${data.ce || '1.0'}" oninput="updateSptJson()" style="margin:0; width:100%;"></td>
+            <td><input type="number" step="0.01" class="spt-cn" value="${data.cn || '1.0'}" oninput="updateSptJson()" style="margin:0; width:100%;"></td>
+            <td><input type="number" class="spt-n60" value="${data.n60 || ''}" readonly style="margin:0; width:100%; background:#eee;"></td>
+            <td style="text-align:center;"><button class="btn-small" style="background-color:#c0392b; padding:2px 8px;" onclick="deleteSptRow(this)">X</button></td>
+        `;
+        tbody.appendChild(tr);
+        if (!skipUpdate) updateSptJson();
+    }
+
+    function deleteSptRow(btn) {
+        btn.closest('tr').remove();
+        updateSptJson();
+    }
+
+    function updateSptJson() {
+        const rows = document.querySelectorAll('#sptTable tbody tr');
+        const data = [];
+        rows.forEach(row => {
+            data.push({
+                depth: row.querySelector('.spt-depth').value,
+                n: row.querySelector('.spt-n').value,
+                ce: row.querySelector('.spt-ce').value,
+                cn: row.querySelector('.spt-cn').value,
+                n60: row.querySelector('.spt-n60').value
+            });
+        });
+        document.getElementById('sptData').value = JSON.stringify(data);
+        if (typeof autoSave === 'function') autoSave();
+    }
+
+    function renderSptTableFromHidden() {
+        const hiddenVal = document.getElementById('sptData').value;
+        const tbody = document.querySelector('#sptTable tbody');
+        tbody.innerHTML = '';
+        if (hiddenVal) {
+            try {
+                const data = JSON.parse(hiddenVal);
+                if (Array.isArray(data)) {
+                    data.forEach(row => addSptRow(row, true));
+                }
+            } catch (e) { console.error("SPT data parse error", e); }
+        }
+    }
+
+    function calculateSptN60() {
+        const rows = document.querySelectorAll('#sptTable tbody tr');
+        rows.forEach(row => {
+            const n = parseFloat(row.querySelector('.spt-n').value) || 0;
+            const ce = parseFloat(row.querySelector('.spt-ce').value) || 1;
+            const cn = parseFloat(row.querySelector('.spt-cn').value) || 1;
+            
+            const n60 = n * ce * cn;
+            row.querySelector('.spt-n60').value = n60.toFixed(1);
+        });
+        updateSptJson();
+    }
+
+    // --- CPT Table Functions ---
+    function addCptRow(data = {}, skipUpdate = false) {
+        const tbody = document.querySelector('#cptTable tbody');
+        const tr = document.createElement('tr');
+        
+        tr.innerHTML = `
+            <td><input type="number" step="0.1" class="cpt-depth" value="${data.depth || ''}" oninput="updateCptJson()" style="margin:0; width:100%;"></td>
+            <td><input type="number" step="0.1" class="cpt-qc" value="${data.qc || ''}" oninput="updateCptJson()" style="margin:0; width:100%;"></td>
+            <td><input type="number" step="0.1" class="cpt-fs" value="${data.fs || ''}" oninput="updateCptJson()" style="margin:0; width:100%;"></td>
+            <td><input type="number" step="0.01" class="cpt-rf" value="${data.rf || ''}" readonly style="margin:0; width:100%; background:#eee;"></td>
+            <td style="text-align:center;"><button class="btn-small" style="background-color:#c0392b; padding:2px 8px;" onclick="deleteCptRow(this)">X</button></td>
+        `;
+        tbody.appendChild(tr);
+        if (!skipUpdate) updateCptJson();
+    }
+
+    function deleteCptRow(btn) {
+        btn.closest('tr').remove();
+        updateCptJson();
+    }
+
+    function updateCptJson() {
+        const rows = document.querySelectorAll('#cptTable tbody tr');
+        const data = [];
+        rows.forEach(row => {
+            data.push({
+                depth: row.querySelector('.cpt-depth').value,
+                qc: row.querySelector('.cpt-qc').value,
+                fs: row.querySelector('.cpt-fs').value,
+                rf: row.querySelector('.cpt-rf').value
+            });
+        });
+        document.getElementById('cptData').value = JSON.stringify(data);
+        if (typeof autoSave === 'function') autoSave();
+    }
+
+    function renderCptTableFromHidden() {
+        const hiddenVal = document.getElementById('cptData').value;
+        const tbody = document.querySelector('#cptTable tbody');
+        tbody.innerHTML = '';
+        if (hiddenVal) {
+            try {
+                const data = JSON.parse(hiddenVal);
+                if (Array.isArray(data)) {
+                    data.forEach(row => addCptRow(row, true));
+                }
+            } catch (e) { console.error("CPT data parse error", e); }
+        }
+    }
+
+    function calculateCptRf() {
+        const rows = document.querySelectorAll('#cptTable tbody tr');
+        rows.forEach(row => {
+            const qc = parseFloat(row.querySelector('.cpt-qc').value) || 0; // MPa
+            const fs = parseFloat(row.querySelector('.cpt-fs').value) || 0; // kPa
+            
+            if (qc > 0) {
+                // Rf = (fs(kPa) / (qc(MPa) * 1000)) * 100
+                const rf = (fs / (qc * 1000)) * 100;
+                row.querySelector('.cpt-rf').value = rf.toFixed(2);
+            } else {
+                row.querySelector('.cpt-rf').value = '';
+            }
+        });
+        updateCptJson();
+    }
+
+    // --- YAS Table Functions ---
+    function addYasRow(data = {}, skipUpdate = false) {
+        const tbody = document.querySelector('#yasTable tbody');
+        const tr = document.createElement('tr');
+        
+        tr.innerHTML = `
+            <td><input type="text" class="yas-level" value="${data.level || ''}" oninput="updateYasJson()" style="margin:0; width:100%;" placeholder="Örn: -3.50"></td>
+            <td><input type="date" class="yas-date" value="${data.date || ''}" oninput="updateYasJson()" style="margin:0; width:100%;"></td>
+            <td><input type="text" class="yas-season" value="${data.season || ''}" oninput="updateYasJson()" style="margin:0; width:100%;" placeholder="Örn: Yağışlı / Kurak"></td>
+            <td style="text-align:center;"><button class="btn-small" style="background-color:#c0392b; padding:2px 8px;" onclick="deleteYasRow(this)">X</button></td>
+        `;
+        tbody.appendChild(tr);
+        if (!skipUpdate) updateYasJson();
+    }
+
+    function deleteYasRow(btn) {
+        btn.closest('tr').remove();
+        updateYasJson();
+    }
+
+    function updateYasJson() {
+        const rows = document.querySelectorAll('#yasTable tbody tr');
+        const data = [];
+        rows.forEach(row => {
+            data.push({
+                level: row.querySelector('.yas-level').value,
+                date: row.querySelector('.yas-date').value,
+                season: row.querySelector('.yas-season').value
+            });
+        });
+        document.getElementById('yasData').value = JSON.stringify(data);
+        if (typeof autoSave === 'function') autoSave();
+    }
+
+    function renderYasTableFromHidden() {
+        const hiddenVal = document.getElementById('yasData').value;
+        const tbody = document.querySelector('#yasTable tbody');
+        tbody.innerHTML = '';
+        if (hiddenVal) {
+            try {
+                const data = JSON.parse(hiddenVal);
+                if (Array.isArray(data)) {
+                    data.forEach(row => addYasRow(row, true));
+                }
+            } catch (e) { console.error("YAS data parse error", e); }
+        }
+    }
+
+    // --- Fiziksel Özellikler Table Functions ---
+    function addFizikselRow(data = {}, skipUpdate = false) {
+        const tbody = document.querySelector('#fizikselTable tbody');
+        const tr = document.createElement('tr');
+        
+        tr.innerHTML = `
+            <td><input type="number" step="0.1" class="fiz-depth" value="${data.depth || ''}" oninput="updateFizikselJson()" style="margin:0; width:100%;"></td>
+            <td><input type="number" step="0.1" class="fiz-w" value="${data.w || ''}" oninput="updateFizikselJson()" style="margin:0; width:100%;"></td>
+            <td><input type="number" step="0.1" class="fiz-gamma" value="${data.gamma || ''}" oninput="updateFizikselJson()" style="margin:0; width:100%;"></td>
+            <td><input type="number" step="0.1" class="fiz-gammad" value="${data.gammad || ''}" oninput="updateFizikselJson()" style="margin:0; width:100%;"></td>
+            <td><input type="number" step="0.1" class="fiz-gammasat" value="${data.gammasat || ''}" oninput="updateFizikselJson()" style="margin:0; width:100%;"></td>
+            <td><input type="number" step="1" class="fiz-dr" value="${data.dr || ''}" oninput="updateFizikselJson()" style="margin:0; width:100%;"></td>
+            <td style="text-align:center;"><button class="btn-small" style="background-color:#c0392b; padding:2px 8px;" onclick="deleteFizikselRow(this)">X</button></td>
+        `;
+        tbody.appendChild(tr);
+        if (!skipUpdate) updateFizikselJson();
+    }
+
+    function deleteFizikselRow(btn) {
+        btn.closest('tr').remove();
+        updateFizikselJson();
+    }
+
+    function updateFizikselJson() {
+        const rows = document.querySelectorAll('#fizikselTable tbody tr');
+        const data = [];
+        rows.forEach(row => {
+            data.push({
+                depth: row.querySelector('.fiz-depth').value,
+                w: row.querySelector('.fiz-w').value,
+                gamma: row.querySelector('.fiz-gamma').value,
+                gammad: row.querySelector('.fiz-gammad').value,
+                gammasat: row.querySelector('.fiz-gammasat').value,
+                dr: row.querySelector('.fiz-dr').value
+            });
+        });
+        document.getElementById('fizikselData').value = JSON.stringify(data);
+        if (typeof autoSave === 'function') autoSave();
+    }
+
+    function renderFizikselTableFromHidden() {
+        const hiddenVal = document.getElementById('fizikselData').value;
+        const tbody = document.querySelector('#fizikselTable tbody');
+        tbody.innerHTML = '';
+        if (hiddenVal) {
+            try {
+                const data = JSON.parse(hiddenVal);
+                if (Array.isArray(data)) {
+                    data.forEach(row => addFizikselRow(row, true));
+                }
+            } catch (e) { console.error("Fiziksel data parse error", e); }
+        }
+    }
+
+    // --- Dayanım Parametreleri Table Functions ---
+    function addDayanimRow(data = {}, skipUpdate = false) {
+        const tbody = document.querySelector('#dayanimTable tbody');
+        const tr = document.createElement('tr');
+        
+        tr.innerHTML = `
+            <td><input type="number" step="0.1" class="day-depth" value="${data.depth || ''}" oninput="updateDayanimJson()" style="margin:0; width:100%;"></td>
+            <td><input type="number" step="0.1" class="day-c" value="${data.c || ''}" oninput="updateDayanimJson()" style="margin:0; width:100%;"></td>
+            <td><input type="number" step="0.1" class="day-phi" value="${data.phi || ''}" oninput="updateDayanimJson()" style="margin:0; width:100%;"></td>
+            <td><input type="number" step="0.1" class="day-c_eff" value="${data.c_eff || ''}" oninput="updateDayanimJson()" style="margin:0; width:100%;"></td>
+            <td><input type="number" step="0.1" class="day-phi_eff" value="${data.phi_eff || ''}" oninput="updateDayanimJson()" style="margin:0; width:100%;"></td>
+            <td style="text-align:center;"><button class="btn-small" style="background-color:#c0392b; padding:2px 8px;" onclick="deleteDayanimRow(this)">X</button></td>
+        `;
+        tbody.appendChild(tr);
+        if (!skipUpdate) updateDayanimJson();
+    }
+
+    function deleteDayanimRow(btn) {
+        btn.closest('tr').remove();
+        updateDayanimJson();
+    }
+
+    function updateDayanimJson() {
+        const rows = document.querySelectorAll('#dayanimTable tbody tr');
+        const data = [];
+        rows.forEach(row => {
+            data.push({
+                depth: row.querySelector('.day-depth').value,
+                c: row.querySelector('.day-c').value,
+                phi: row.querySelector('.day-phi').value,
+                c_eff: row.querySelector('.day-c_eff').value,
+                phi_eff: row.querySelector('.day-phi_eff').value
+            });
+        });
+        document.getElementById('dayanimData').value = JSON.stringify(data);
+        if (typeof autoSave === 'function') autoSave();
+    }
+
+    function renderDayanimTableFromHidden() {
+        const hiddenVal = document.getElementById('dayanimData').value;
+        const tbody = document.querySelector('#dayanimTable tbody');
+        tbody.innerHTML = '';
+        if (hiddenVal) {
+            try {
+                const data = JSON.parse(hiddenVal);
+                if (Array.isArray(data)) {
+                    data.forEach(row => addDayanimRow(row, true));
+                }
+            } catch (e) { console.error("Dayanim data parse error", e); }
+        }
+    }
+</script>
+
+</body>
+</html>
